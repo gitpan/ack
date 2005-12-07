@@ -1,5 +1,17 @@
 Revision history for ack
 
+1.00    Wed Dec  7 09:30:25 CST 2005
+        [ENHANCEMENTS]
+        * Added support for finding C programs (--cc)
+
+        * Removed the --only option.  It's now smart enough to know
+          that if, for example, you say --perl, you only want Perl stuff,
+          and that if you say --noperl, you want everything BUT Perl.
+
+        * Removed the --exec option, which is irrelevant if you use
+          xargs like you should.  I added --exec before I understood what
+          xargs did.
+
 0.90    Fri Dec  2 11:12:44 CST 2005
         First version, released on an unsuspecting world.  It's been
         used at FLR for years, but I'm now releasing it in the wild.

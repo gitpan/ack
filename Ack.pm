@@ -9,17 +9,55 @@ App::Ack - A container for functions for the ack program
 
 =head1 VERSION
 
-Version 0.90
+Version 1.00
 
 =cut
 
-our $VERSION = '0.90';
+our $VERSION = '1.00';
+
+use Exporter;
+our @ISA    = 'Exporter';
+our @EXPORT = qw( filetype );
 
 =head1 SYNOPSIS
 
 No user-serviceable parts inside.  F<ack> is all that should use this.
 
 =head1 FUNCTIONS
+
+=head2 filetype( $filename )
+
+Tries to figure out the filetype of I<$filename>
+
+=cut
+
+sub filetype {
+    my $filename = shift;
+
+    return "cc"     if $filename =~ /\.[ch](pp)?$/;
+    return "perl"   if $filename =~ /\.(pl|pm|pod|tt|ttml|t)$/;
+    return "php"    if $filename =~ /\.(phpt?|html?)$/;
+    return "shell"  if $filename =~ /\.[ckz]?sh$/;
+    return "sql"    if $filename =~ /\.(sql|ctl)$/;
+
+    if ( $filename !~ /\./ ) {
+        # No extension?  See if it's a shell script
+        my $fh;
+        if ( !open( $fh, "<", $filename ) ) {
+            warn "Can't open $filename: $!\n";
+            return;
+        }
+        my $header = <$fh>;
+        close $fh;
+        return unless defined $header;
+        return "perl"   if $header =~ /^#.+perl\b/;
+        return "php"    if $header =~ /^#.+php\b/;
+        return "shell"  if $header =~ /^#.+\/(ba|c|k|z)?sh\b/;
+        return;
+    }
+
+    return;
+}
 
 =head1 AUTHOR
 

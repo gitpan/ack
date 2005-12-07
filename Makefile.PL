@@ -11,6 +11,9 @@ WriteMakefile(
     MAN3PODS            => {}, # App::Ack's docs aren't useful
     EXE_FILES           => [ 'ack' ],
     PREREQ_PM => {
+        'File::Find' => 0,
+        'Term::ANSIColor' => 0,
+        'Getopt::Long' => 0,
         'Test::More' => 0,
     },
     dist                => { COMPRESS => 'gzip -9f', SUFFIX => 'gz', },
