@@ -13,7 +13,7 @@ Version 1.00
 
 =cut
 
-our $VERSION = '1.00';
+our $VERSION = '1.02';
 
 use Exporter;
 our @ISA    = 'Exporter';

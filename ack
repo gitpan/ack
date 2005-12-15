@@ -91,12 +91,12 @@ sub handler {
 
     return if /~$/;
 
-    return if $opt_all;
+    if ( !$opt_all ) {
+        my $type = filetype( $_ );
 
-    my $type = filetype( $_ );
-
-    return unless defined $type;
-    return unless $lang{$type};
+        return unless defined $type;
+        return unless $lang{$type};
+    }
 
     search( $_, $File::Find::name, $re );
 }
