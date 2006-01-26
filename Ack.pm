@@ -9,11 +9,11 @@ App::Ack - A container for functions for the ack program
 
 =head1 VERSION
 
-Version 1.00
+Version 1.04
 
 =cut
 
-our $VERSION = '1.02';
+our $VERSION = '1.04';
 
 use Exporter;
 our @ISA    = 'Exporter';
@@ -37,6 +37,8 @@ sub filetype {
     return "cc"     if $filename =~ /\.[ch](pp)?$/;
     return "perl"   if $filename =~ /\.(pl|pm|pod|tt|ttml|t)$/;
     return "php"    if $filename =~ /\.(phpt?|html?)$/;
+    return "python" if $filename =~ /\.py$/;
+    return "ruby"   if $filename =~ /\.rb$/;
     return "shell"  if $filename =~ /\.[ckz]?sh$/;
     return "sql"    if $filename =~ /\.(sql|ctl)$/;
 
@@ -50,9 +52,11 @@ sub filetype {
         my $header = <$fh>;
         close $fh;
         return unless defined $header;
-        return "perl"   if $header =~ /^#.+perl\b/;
-        return "php"    if $header =~ /^#.+php\b/;
-        return "shell"  if $header =~ /^#.+\/(ba|c|k|z)?sh\b/;
+        return "perl"   if $header =~ /^#.+\bperl\b/;
+        return "php"    if $header =~ /^#.+\bphp\b/;
+        return "python" if $header =~ /^#.+\bpython\b/;
+        return "ruby"   if $header =~ /^#.+\bruby\b/;
+        return "shell"  if $header =~ /^#.+\b(ba|c|k|z)?sh\b/;
         return;
     }
 

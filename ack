@@ -2,16 +2,26 @@
 
 =head1 NAME
 
-ack - TW-specific grep-like program
+ack - grep-like text finder for large trees of text
 
 =head1 DESCRIPTION
 
-ack lets recursively grep through the TW source tree, using Perl
-regular expressions.  It also color-codes results if appropriate.
+F<ack> is a F<grep>-like program with optimizations for searching through
+large trees of source code.
 
-=head1 TODO
+Key improvements include:
 
-Add a --[no]comment option to grep inside or exclude comments.
+=over 4
+
+=item * Defaults to only searching program source code
+
+=item * Defaults to recursively searching directories
+
+=item * Uses Perl regular expressions
+
+=item * Highlights matched text
+
+=back
 
 =cut
 
@@ -19,21 +29,19 @@ use strict;
 use App::Ack;
 use File::Find;
 use Term::ANSIColor;
-
 use Getopt::Long;
 
 our $is_tty = -t STDOUT;
 
 our $opt_group =    $is_tty;
-our $opt_all =      0;
 our $opt_color =    $is_tty;
+our $opt_all =      0;
 our $opt_help =     0;
 our %lang;
 
-our @languages_supported = qw( cc perl php shell sql );
-@lang{@languages_supported} = ();
+our @languages_supported = qw( cc perl php python ruby shell sql );
 
-GetOptions(
+my %options = (
     h           => \( our $opt_h = 0 ),
     i           => \( our $opt_i = 0 ),
     l           => \( our $opt_l = 0 ),
@@ -42,17 +50,17 @@ GetOptions(
     o           => \( our $opt_o = 0 ),
     v           => \( our $opt_v = 0 ),
     w           => \( our $opt_w = 0 ),
-    "cc!"       => \$lang{cc},
-    "perl!"     => \$lang{perl},
-    "php!"      => \$lang{php},
-    "shell!"    => \$lang{shell},
-    "sql!"      => \$lang{sql},
     "all!"      => \$opt_all,
     "group!"    => \$opt_group,
     "color!"    => \$opt_color,
     "help"      => \$opt_help,
     "version"   => sub { print "ack $App::Ack::VERSION\n" and exit 1; },
-) or $opt_help = 1;
+);
+for my $i ( @languages_supported ) {
+    $options{ "$i!" } = \$lang{ $i };
+}
+
+GetOptions( %options ) or $opt_help = 1;
 
 my $languages_supported_set =   grep { defined $lang{$_} && ($lang{$_} == 1) } @languages_supported;
 my $languages_supported_unset = grep { defined $lang{$_} && ($lang{$_} == 0) } @languages_supported;
@@ -82,14 +90,16 @@ my @what = @ARGV ? @ARGV : ".";
 find( \&handler, @what );
 
 sub handler {
+    return if /~$/;
+
     if ( -d ) {
-        $File::Find::prune = 1 if m{ CVS }msx;
-        $File::Find::prune = 1 if m{ .svn }msx;
+        $File::Find::prune = 1 if $_ eq 'CVS';
+        $File::Find::prune = 1 if $_ eq '.svn';
+        $File::Find::prune = 1 if $_ eq 'blib';
+        $File::Find::prune = 1 if $_ eq 'RCS';
         $File::Find::prune = 1 if $opt_n && ( $_ ne "." );
         return;
     }
-
-    return if /~$/;
 
     if ( !$opt_all ) {
         my $type = filetype( $_ );
@@ -158,11 +168,24 @@ sub search {
 }
 
 
+=head1 TODO
+
+=over 4
+
+=item * Search through standard input if no files specified
+
+=item * Add a --[no]comment option to grep inside or exclude comments.
+
+=back
+
+=cut
+
+1;
+
 __DATA__
 Usage: ack [OPTION]... PATTERN [FILES]
-Search for PATTERN in each file in the tree from cwd on down.
-If [FILES] is specified, then only those files/directories
-are checked.
+Search for PATTERN in each source file in the tree from cwd on down.
+If [FILES] is specified, then only those files/directories are checked.
 
 Example: ack -i select
 
@@ -182,8 +205,11 @@ Output & searching:
 File selection:
     -n              No descending into subdirectories
     --[no]cc        .c and .h                         (default: on)
-    --[no]php       .html, .php, and .phpt            (default: on)
     --[no]perl      .pl, .pm, .pod, .t, .tt and .ttml (default: on)
-    --[no]sql       .sql and .ctl files               (default: on)
+    --[no]php       .html, .php, and .phpt            (default: on)
+    --[no]python    .py                               (default: on)
+    --[no]ruby      .rb                               (default: on)
     --[no]shell     shell scripts                     (default: on)
+    --[no]sql       .sql and .ctl files               (default: on)
     --all           All files, regardless of extension
+                    (but still skips CVS, .svn and blib dirs)
