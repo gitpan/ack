@@ -9,14 +9,13 @@ App::Ack - A container for functions for the ack program
 
 =head1 VERSION
 
-Version 1.04
+Version 1.06
 
 =cut
 
-our $VERSION = '1.04';
+our $VERSION = '1.06';
 
-use Exporter;
-our @ISA    = 'Exporter';
+use base 'Exporter';
 our @EXPORT = qw( filetype );
 
 =head1 SYNOPSIS
@@ -46,7 +45,7 @@ sub filetype {
         # No extension?  See if it's a shell script
         my $fh;
         if ( !open( $fh, "<", $filename ) ) {
-            warn "Can't open $filename: $!\n";
+            warn "ack: $filename: $!\n";
             return;
         }
         my $header = <$fh>;

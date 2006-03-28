@@ -1,3 +1,4 @@
+use 5.6.1;
 use strict;
 use warnings;
 use ExtUtils::MakeMaker;
@@ -19,3 +20,15 @@ WriteMakefile(
     dist                => { COMPRESS => 'gzip -9f', SUFFIX => 'gz', },
     clean               => { FILES => 'ack-*' },
 );
+
+sub MY::postamble {
+    return <<'MAKE_FRAG';
+.PHONY: tags
+
+tags:
+	ctags -f tags --recurse --totals \
+		--exclude=blib --exclude=t/lib \
+		--exclude=.svn --exclude='*~' \
+		--languages=Perl --langmap=Perl:+.t \
+MAKE_FRAG
+}

@@ -1,5 +1,10 @@
 Revision history for ack
 
+1.06    Tue Mar 28 08:37:02 CST 2006
+        [FIXES]
+        * Now handles filenames that start with ">" or "<".
+        * Failing to open a file is now a warning, instead of fatal.
+
 1.04    Wed Jan 25 22:51:11 CST 2006
         [ENHANCEMENTS]
         * Now skips blib and RCS as well as CVS and .svn directories.

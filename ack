@@ -119,8 +119,13 @@ sub search {
 
     my $nmatches = 0;
 
+    my $fh;
+    if ( !open( $fh, "<", $filename ) ) {
+        warn "ack: $filename: $!\n";
+        return;
+    }
+
     local $_;
-    open( my $fh, $filename ) or die "Can't open $filename: $!";
     while (<$fh>) {
         if ( /$re/ ) {
             ++$nmatches;
