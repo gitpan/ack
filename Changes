@@ -1,5 +1,13 @@
 Revision history for ack
 
+NEXT
+        [ENHANCEMENTS]
+        * Now supports argument bundling.  "ack -i -l" can now be done as
+          "ack -il".  Thanks, Pete Krawczyk.
+
+        * Added --javascript support, plus a --js version to save your
+          weary fingers.  Thanks, Ask.
+
 1.06    Tue Mar 28 08:37:02 CST 2006
         [FIXES]
         * Now handles filenames that start with ">" or "<".

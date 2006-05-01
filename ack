@@ -17,6 +17,10 @@ Key improvements include:
 
 =item * Defaults to recursively searching directories
 
+=item * Ignores F<blib> directories.
+
+=item * Ignores source code control directories, like F<CVS>, F<.svn> and F<_darcs>.
+
 =item * Uses Perl regular expressions
 
 =item * Highlights matched text
@@ -39,7 +43,7 @@ our $opt_all =      0;
 our $opt_help =     0;
 our %lang;
 
-our @languages_supported = qw( cc perl php python ruby shell sql );
+our @languages_supported = qw( cc javascript perl php python ruby shell sql );
 
 my %options = (
     h           => \( our $opt_h = 0 ),
@@ -59,7 +63,9 @@ my %options = (
 for my $i ( @languages_supported ) {
     $options{ "$i!" } = \$lang{ $i };
 }
+$options{ "js!" } = \$lang{ javascript };
 
+Getopt::Long::Configure( "bundling" );
 GetOptions( %options ) or $opt_help = 1;
 
 my $languages_supported_set =   grep { defined $lang{$_} && ($lang{$_} == 1) } @languages_supported;
@@ -89,14 +95,13 @@ else {
 my @what = @ARGV ? @ARGV : ".";
 find( \&handler, @what );
 
+my %prunes = map { ($_,1) } qw( CVS RCS .svn _darcs blib );
+
 sub handler {
     return if /~$/;
 
     if ( -d ) {
-        $File::Find::prune = 1 if $_ eq 'CVS';
-        $File::Find::prune = 1 if $_ eq '.svn';
-        $File::Find::prune = 1 if $_ eq 'blib';
-        $File::Find::prune = 1 if $_ eq 'RCS';
+        $File::Find::prune = 1 if $prunes{$_};
         $File::Find::prune = 1 if $opt_n && ( $_ ne "." );
         return;
     }
@@ -195,26 +200,28 @@ If [FILES] is specified, then only those files/directories are checked.
 Example: ack -i select
 
 Output & searching:
-    -i              ignore case distinctions
-    -v              invert match: select non-matching lines
-    -w              force PATTERN to match only whole words
-    -l              only print filenames containing matches
-    -o              show only the part of a line matching PATTERN
-    -m=NUM          stop after NUM matches
-    -h              don't print filenames
-    --[no]group     print a blank line between each file's matches
-                    (default: on unless output is redirected)
-    --[no]color     highlight the matching text (default: on unless
-                    output is redirected)
+    -i                ignore case distinctions
+    -v                invert match: select non-matching lines
+    -w                force PATTERN to match only whole words
+    -l                only print filenames containing matches
+    -o                show only the part of a line matching PATTERN
+    -m=NUM            stop after NUM matches
+    -h                don't print filenames
+    --[no]group       print a blank line between each file's matches
+                      (default: on unless output is redirected)
+    --[no]color       highlight the matching text (default: on unless
+                      output is redirected)
 
 File selection:
-    -n              No descending into subdirectories
-    --[no]cc        .c and .h                         (default: on)
-    --[no]perl      .pl, .pm, .pod, .t, .tt and .ttml (default: on)
-    --[no]php       .html, .php, and .phpt            (default: on)
-    --[no]python    .py                               (default: on)
-    --[no]ruby      .rb                               (default: on)
-    --[no]shell     shell scripts                     (default: on)
-    --[no]sql       .sql and .ctl files               (default: on)
-    --all           All files, regardless of extension
-                    (but still skips CVS, .svn and blib dirs)
+    -n                No descending into subdirectories
+    --[no]cc          .c and .h
+    --[no]javascript  .js
+    --[no]js          same as --[no]javascript
+    --[no]perl        .pl, .pm, .pod, .t, .tt and .ttml
+    --[no]php         .html, .php, and .phpt
+    --[no]python      .py
+    --[no]ruby        .rb
+    --[no]shell       shell scripts
+    --[no]sql         .sql and .ctl files
+    --all             All files, regardless of extension
+                      (but still skips RCS, CVS, .svn, _darcs and blib dirs)

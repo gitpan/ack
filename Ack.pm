@@ -9,11 +9,11 @@ App::Ack - A container for functions for the ack program
 
 =head1 VERSION
 
-Version 1.06
+Version 1.08
 
 =cut
 
-our $VERSION = '1.06';
+our $VERSION = '1.08';
 
 use base 'Exporter';
 our @EXPORT = qw( filetype );
@@ -33,13 +33,14 @@ Tries to figure out the filetype of I<$filename>
 sub filetype {
     my $filename = shift;
 
-    return "cc"     if $filename =~ /\.[ch](pp)?$/;
-    return "perl"   if $filename =~ /\.(pl|pm|pod|tt|ttml|t)$/;
-    return "php"    if $filename =~ /\.(phpt?|html?)$/;
-    return "python" if $filename =~ /\.py$/;
-    return "ruby"   if $filename =~ /\.rb$/;
-    return "shell"  if $filename =~ /\.[ckz]?sh$/;
-    return "sql"    if $filename =~ /\.(sql|ctl)$/;
+    return "cc"         if $filename =~ /\.[ch](pp)?$/;
+    return "perl"       if $filename =~ /\.(pl|pm|pod|tt|ttml|t)$/;
+    return "php"        if $filename =~ /\.(phpt?|html?)$/;
+    return "python"     if $filename =~ /\.py$/;
+    return "ruby"       if $filename =~ /\.rb$/;
+    return "shell"      if $filename =~ /\.[ckz]?sh$/;
+    return "sql"        if $filename =~ /\.(sql|ctl)$/;
+    return "javascript" if $filename =~ /\.js$/;
 
     if ( $filename !~ /\./ ) {
         # No extension?  See if it's a shell script
@@ -69,7 +70,7 @@ Andy Lester, C<< <andy at petdance.com> >>
 =head1 BUGS
 
 Please report any bugs or feature requests to
-C<bug-app-ack at rt.cpan.org>, or through the web interface at
+C<bug-ack at rt.cpan.org>, or through the web interface at
 L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=ack>.
 I will be notified, and then you'll automatically be notified of progress on
 your bug as I make changes.
@@ -103,7 +104,7 @@ L<http://search.cpan.org/dist/ack>
 
 =head1 COPYRIGHT & LICENSE
 
-Copyright 2005 Andy Lester, all rights reserved.
+Copyright 2005-2006 Andy Lester, all rights reserved.
 
 This program is free software; you can redistribute it and/or modify it
 under the same terms as Perl itself.
