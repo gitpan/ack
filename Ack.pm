@@ -9,11 +9,11 @@ App::Ack - A container for functions for the ack program
 
 =head1 VERSION
 
-Version 1.08
+Version 1.10
 
 =cut
 
-our $VERSION = '1.08';
+our $VERSION = '1.10';
 
 use base 'Exporter';
 our @EXPORT = qw( filetype );
@@ -34,16 +34,17 @@ sub filetype {
     my $filename = shift;
 
     return "cc"         if $filename =~ /\.[ch](pp)?$/;
+    return "parrot"     if $filename =~ /\.(pir|pasm|pmc|ops)$/;
     return "perl"       if $filename =~ /\.(pl|pm|pod|tt|ttml|t)$/;
     return "php"        if $filename =~ /\.(phpt?|html?)$/;
     return "python"     if $filename =~ /\.py$/;
     return "ruby"       if $filename =~ /\.rb$/;
-    return "shell"      if $filename =~ /\.[ckz]?sh$/;
+    return "shell"      if $filename =~ /\.(ba|c|k|z)?sh$/;
     return "sql"        if $filename =~ /\.(sql|ctl)$/;
     return "javascript" if $filename =~ /\.js$/;
 
+    # No extension?  See if it has a shebang line
     if ( $filename !~ /\./ ) {
-        # No extension?  See if it's a shell script
         my $fh;
         if ( !open( $fh, "<", $filename ) ) {
             warn "ack: $filename: $!\n";

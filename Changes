@@ -1,6 +1,15 @@
 Revision history for ack
 
-NEXT
+1.10    Thu May  4 16:11:38 CDT 2006
+        [ENHANCEMENTS]
+        * Added --parrot support.  Thanks, Jerry Gay.
+
+        * No longer defaults to ANSI highlighting on Windows.  Thanks
+          again, Jerry.
+
+        * Added support for ACK_SWITCHES environment variable.
+
+1.08    May 01 2006
         [ENHANCEMENTS]
         * Now supports argument bundling.  "ack -i -l" can now be done as
           "ack -il".  Thanks, Pete Krawczyk.

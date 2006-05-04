@@ -38,12 +38,12 @@ use Getopt::Long;
 our $is_tty = -t STDOUT;
 
 our $opt_group =    $is_tty;
-our $opt_color =    $is_tty;
+our $opt_color =    $is_tty && ($^O !~ /MSWin32/);
 our $opt_all =      0;
 our $opt_help =     0;
 our %lang;
 
-our @languages_supported = qw( cc javascript perl php python ruby shell sql );
+our @languages_supported = qw( cc javascript parrot perl php python ruby shell sql );
 
 my %options = (
     h           => \( our $opt_h = 0 ),
@@ -64,6 +64,10 @@ for my $i ( @languages_supported ) {
     $options{ "$i!" } = \$lang{ $i };
 }
 $options{ "js!" } = \$lang{ javascript };
+
+# Stick any default switches at the beginning, so they can be overridden
+# by the command line switches.
+unshift @ARGV, split( " ", $ENV{ACK_SWITCHES} ) if defined $ENV{ACK_SWITCHES};
 
 Getopt::Long::Configure( "bundling" );
 GetOptions( %options ) or $opt_help = 1;
@@ -196,6 +200,7 @@ __DATA__
 Usage: ack [OPTION]... PATTERN [FILES]
 Search for PATTERN in each source file in the tree from cwd on down.
 If [FILES] is specified, then only those files/directories are checked.
+Default switches may be specified in ACK_SWITCHES environment variable.
 
 Example: ack -i select
 
@@ -210,18 +215,19 @@ Output & searching:
     --[no]group       print a blank line between each file's matches
                       (default: on unless output is redirected)
     --[no]color       highlight the matching text (default: on unless
-                      output is redirected)
+                      output is redirected, or on Windows)
 
 File selection:
     -n                No descending into subdirectories
+    --all             All files, regardless of extension
+                      (but still skips RCS, CVS, .svn, _darcs and blib dirs)
     --[no]cc          .c and .h
     --[no]javascript  .js
     --[no]js          same as --[no]javascript
+    --[no]parrot      .pir, .pasm, .pmc, .ops
     --[no]perl        .pl, .pm, .pod, .t, .tt and .ttml
     --[no]php         .html, .php, and .phpt
     --[no]python      .py
     --[no]ruby        .rb
     --[no]shell       shell scripts
     --[no]sql         .sql and .ctl files
-    --all             All files, regardless of extension
-                      (but still skips RCS, CVS, .svn, _darcs and blib dirs)
