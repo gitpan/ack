@@ -1,5 +1,9 @@
 Revision history for ack
 
+1.12    Wed May 10 11:13:42 CDT 2006
+        [FIXES]
+        * Was not skipping directories it should have been.  Now it does.
+
 1.10    Thu May  4 16:11:38 CDT 2006
         [ENHANCEMENTS]
         * Added --parrot support.  Thanks, Jerry Gay.

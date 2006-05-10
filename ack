@@ -99,9 +99,10 @@ else {
 my @what = @ARGV ? @ARGV : ".";
 find( \&handler, @what );
 
-my %prunes = map { ($_,1) } qw( CVS RCS .svn _darcs blib );
 
 sub handler {
+    our %prunes;
+    %prunes = map { ($_,1) } qw( CVS RCS .svn _darcs blib ) unless %prunes;
     return if /~$/;
 
     if ( -d ) {
@@ -216,6 +217,7 @@ Output & searching:
                       (default: on unless output is redirected)
     --[no]color       highlight the matching text (default: on unless
                       output is redirected, or on Windows)
+    --version         display version
 
 File selection:
     -n                No descending into subdirectories
