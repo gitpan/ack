@@ -9,14 +9,15 @@ App::Ack - A container for functions for the ack program
 
 =head1 VERSION
 
-Version 1.12
+Version 1.14
 
 =cut
 
-our $VERSION = '1.12';
+our $VERSION = '1.14';
 
 use base 'Exporter';
-our @EXPORT = qw( filetype );
+
+our @EXPORT = qw( filetypes is_filetype interesting_files );
 
 =head1 SYNOPSIS
 
@@ -24,24 +25,64 @@ No user-serviceable parts inside.  F<ack> is all that should use this.
 
 =head1 FUNCTIONS
 
-=head2 filetype( $filename )
+=head2 is_filetype( $filename, $filetype )
 
-Tries to figure out the filetype of I<$filename>
+Asks whether I<$filename> is of type I<$filetype>.
 
 =cut
 
-sub filetype {
+sub is_filetype {
+    my $filename = shift;
+    my $wanted_type = shift;
+
+    for my $maybe_type ( filetypes( $filename ) ) {
+        return 1 if $maybe_type eq $wanted_type;
+    }
+
+    return;
+}
+
+=head2 filetypes( $filename )
+
+Returns a list of types that I<$filename> could be.  For example, a file
+F<foo.pod> could be "perl" or "parrot".
+
+=cut
+
+our %types;
+
+sub _set_up_types {
+    my @args = @_;
+
+    while ( @args ) {
+        my $type = shift @args;
+        my $exts = shift @args;
+
+        for my $ext ( @$exts ) {
+            push( @{$types{$ext}}, $type );
+        }
+    }
+}
+
+sub filetypes {
     my $filename = shift;
 
-    return "cc"         if $filename =~ /\.[ch](pp)?$/;
-    return "parrot"     if $filename =~ /\.(pir|pasm|pmc|ops)$/;
-    return "perl"       if $filename =~ /\.(pl|pm|pod|tt|ttml|t)$/;
-    return "php"        if $filename =~ /\.(phpt?|html?)$/;
-    return "python"     if $filename =~ /\.py$/;
-    return "ruby"       if $filename =~ /\.rb$/;
-    return "shell"      if $filename =~ /\.(ba|c|k|z)?sh$/;
-    return "sql"        if $filename =~ /\.(sql|ctl)$/;
-    return "javascript" if $filename =~ /\.js$/;
+    _set_up_types(
+        cc          => [qw( c h )],
+        perl        => [qw( pl pm pod tt ttml t )],
+        parrot      => [qw( pir pasm pmc ops pod )],
+        php         => [qw( php phpt htm html )],
+        python      => [qw( py )],
+        ruby        => [qw( rb )],
+        shell       => [qw( sh bash csh ksh zsh )],
+        sql         => [qw( sql ctl )],
+        javascript  => [qw( js )],
+    ) unless keys %types;
+
+    if ( $filename =~ /\.([^.]+)$/ ) {
+        my $ref = $types{lc $1};
+        return $ref ? @$ref : ();
+    }
 
     # No extension?  See if it has a shebang line
     if ( $filename !~ /\./ ) {
@@ -63,6 +104,48 @@ sub filetype {
 
     return;
 }
+
+=head2 interesting_files( \&is_interesting, $should_descend, @starting points )
+
+Returns an iterator that walks directories starting with the items
+in I<@starting_points>.  If I<$should_descend> is false, don't descend
+into subdirectories. Each file to see if it's interesting is passed to
+I<is_interesting>, which must return true.
+
+Stolen from Mark Jason Dominus' marvelous I<Higher Order Perl>, page 126.
+
+=cut
+
+sub interesting_files {
+    my $is_interesting = shift;
+    my $should_descend = shift;
+    my @queue = @_;
+
+    my %ignore_dirs = map { ($_,1) } qw( . .. CVS RCS .svn _darcs blib );
+
+    return sub {
+        while (@queue) {
+            my $file = shift @queue;
+
+            if (-d $file) {
+                next unless $should_descend;
+                my $dh;
+                if ( !opendir $dh, $file ) {
+                    warn "ack: $file: $!\n";
+                    next;
+                }
+                my @newfiles = grep { !$ignore_dirs{$_} } readdir $dh;
+                @newfiles = map "$file/$_", @newfiles;
+                push( @queue, @newfiles );
+            }
+            elsif (-f $file) {
+                return $file if $is_interesting->($file);
+            }
+        } # while
+        return;
+    }; # iterator
+}
+
 
 =head1 AUTHOR
 

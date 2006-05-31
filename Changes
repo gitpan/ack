@@ -1,5 +1,21 @@
 Revision history for ack
 
+1.14    Tue May 30 23:12:43 CDT 2006
+        [ENHANCEMENTS]
+        * Added -f flag to only show the files that would be searched,
+          instead of actually searching them.  This means that you can
+          get an easy way to get a list of all the Perl files in the
+          current directory, for example, by doing
+
+            ack -f --perl
+
+          Or in multiple directories
+
+            ack -f --perl thisdir thatdir
+
+        [FIXES]
+        * Added back -a as a synonym for --all.
+
 1.12    Wed May 10 11:13:42 CDT 2006
         [FIXES]
         * Was not skipping directories it should have been.  Now it does.

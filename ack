@@ -1,44 +1,22 @@
 #!/usr/local/bin/perl -w
 
-=head1 NAME
-
-ack - grep-like text finder for large trees of text
-
-=head1 DESCRIPTION
-
-F<ack> is a F<grep>-like program with optimizations for searching through
-large trees of source code.
-
-Key improvements include:
-
-=over 4
-
-=item * Defaults to only searching program source code
-
-=item * Defaults to recursively searching directories
-
-=item * Ignores F<blib> directories.
-
-=item * Ignores source code control directories, like F<CVS>, F<.svn> and F<_darcs>.
-
-=item * Uses Perl regular expressions
-
-=item * Highlights matched text
-
-=back
-
-=cut
-
 use strict;
-use App::Ack;
-use File::Find;
-use Term::ANSIColor;
+
+our $is_windows;
+BEGIN {
+    $is_windows = ($^O =~ /MSWin32/);
+}
+
+BEGIN {
+    eval { use Term::ANSIColor } unless $is_windows;
+}
+
+use App::Ack qw( filetypes interesting_files );
 use Getopt::Long;
 
-our $is_tty = -t STDOUT;
-
+our $is_tty =       -t STDOUT;
 our $opt_group =    $is_tty;
-our $opt_color =    $is_tty && ($^O !~ /MSWin32/);
+our $opt_color =    $is_tty && !$is_windows;
 our $opt_all =      0;
 our $opt_help =     0;
 our %lang;
@@ -54,7 +32,9 @@ my %options = (
     o           => \( our $opt_o = 0 ),
     v           => \( our $opt_v = 0 ),
     w           => \( our $opt_w = 0 ),
+    f           => \( our $opt_f = 0 ),
     "all!"      => \$opt_all,
+    a           => \$opt_all,
     "group!"    => \$opt_group,
     "color!"    => \$opt_color,
     "help"      => \$opt_help,
@@ -82,49 +62,52 @@ if ( !$languages_supported_set ) {
     }
 }
 
-if ( $opt_help || !@ARGV ) {
+if ( $opt_help || (!@ARGV && !$opt_f) ) {
     print <DATA>;  # Show usage
     exit 1;
 }
 
-my $re = shift or die "No regex specified\n";
+my $re;
 
-if ( $opt_w ) {
-    $re = $opt_i ? qr/\b$re\b/i : qr/\b$re\b/;
-}
-else {
-    $re = $opt_i ? qr/$re/i : qr/$re/;
+if ( !$opt_f ) {
+    $re = shift or die "No regex specified\n";
+
+    if ( $opt_w ) {
+        $re = $opt_i ? qr/\b$re\b/i : qr/\b$re\b/;
+    }
+    else {
+        $re = $opt_i ? qr/$re/i : qr/$re/;
+    }
 }
 
 my @what = @ARGV ? @ARGV : ".";
-find( \&handler, @what );
 
+sub is_interesting {
+    my $file = shift;
 
-sub handler {
-    our %prunes;
-    %prunes = map { ($_,1) } qw( CVS RCS .svn _darcs blib ) unless %prunes;
-    return if /~$/;
+    return if $file =~ /~$/;
+    return 1 if $opt_all;
 
-    if ( -d ) {
-        $File::Find::prune = 1 if $prunes{$_};
-        $File::Find::prune = 1 if $opt_n && ( $_ ne "." );
-        return;
+    for my $type ( filetypes( $file ) ) {
+        return 1 if $lang{$type};
     }
+    return;
+}
 
-    if ( !$opt_all ) {
-        my $type = filetype( $_ );
+my $iter = interesting_files( \&is_interesting, !$opt_n, @what );
 
-        return unless defined $type;
-        return unless $lang{$type};
+while ( my $file = $iter->() ) {
+    if ( $opt_f ) {
+        print "$file\n";
     }
-
-    search( $_, $File::Find::name, $re );
+    else {
+        search( $file, $re );
+    }
 }
 
 
 sub search {
     my $filename = shift;
-    my $dispname = shift;
     my $regex = shift;
 
     my $nmatches = 0;
@@ -141,7 +124,7 @@ sub search {
             ++$nmatches;
 
             if ( $opt_l ) {
-                print "$dispname\n";
+                print "$filename\n";
                 last;
             }
 
@@ -162,7 +145,7 @@ sub search {
                 print $out;
             }
             else {
-                my $colorname = $opt_color ? colored( $dispname, "bold green" ) : $dispname;
+                my $colorname = $opt_color ? colored( $filename, "bold green" ) : $filename;
                 if ( $opt_group ) {
                     print "$colorname\n" if $nmatches == 1;
                     print "$.:$out";
@@ -176,12 +159,39 @@ sub search {
         } # match
     } # while
 
-    print "$dispname\n" if $opt_v && !$nmatches;
+    print "$filename\n" if $opt_v && !$nmatches;
     print "\n" if $nmatches && ($opt_group && !$opt_l);
 
     close $fh;
 }
 
+
+=head1 NAME
+
+ack - grep-like text finder for large trees of text
+
+=head1 DESCRIPTION
+
+F<ack> is a F<grep>-like program with optimizations for searching through
+large trees of source code.
+
+Key improvements include:
+
+=over 4
+
+=item * Defaults to only searching program source code
+
+=item * Defaults to recursively searching directories
+
+=item * Ignores F<blib> directories.
+
+=item * Ignores source code control directories, like F<CVS>, F<.svn> and F<_darcs>.
+
+=item * Uses Perl regular expressions
+
+=item * Highlights matched text
+
+=back
 
 =head1 TODO
 
@@ -205,10 +215,12 @@ Default switches may be specified in ACK_SWITCHES environment variable.
 
 Example: ack -i select
 
-Output & searching:
+Searching:
     -i                ignore case distinctions
     -v                invert match: select non-matching lines
     -w                force PATTERN to match only whole words
+
+Search output:
     -l                only print filenames containing matches
     -o                show only the part of a line matching PATTERN
     -m=NUM            stop after NUM matches
@@ -217,19 +229,26 @@ Output & searching:
                       (default: on unless output is redirected)
     --[no]color       highlight the matching text (default: on unless
                       output is redirected, or on Windows)
-    --version         display version
+
+File finding:
+    -f                only print the files found, without searching.
+                      The PATTERN must not be specified.
 
 File selection:
     -n                No descending into subdirectories
-    --all             All files, regardless of extension
+    -a, --all         All files, regardless of extension
                       (but still skips RCS, CVS, .svn, _darcs and blib dirs)
     --[no]cc          .c and .h
     --[no]javascript  .js
     --[no]js          same as --[no]javascript
-    --[no]parrot      .pir, .pasm, .pmc, .ops
+    --[no]parrot      .pir, .pasm, .pmc, .ops, .pod
     --[no]perl        .pl, .pm, .pod, .t, .tt and .ttml
     --[no]php         .html, .php, and .phpt
     --[no]python      .py
     --[no]ruby        .rb
     --[no]shell       shell scripts
     --[no]sql         .sql and .ctl files
+
+Miscellaneous:
+    --help            this help
+    --version         display version
