@@ -20,4 +20,7 @@ t/swamp/perl-without-extension
 t/swamp/perl.pl
 t/swamp/perl.pm
 t/swamp/perl.pod
+t/swamp/blib/ignore.pod
+t/swamp/blib/ignore.pm
+t/swamp/blib/ignore.pir
 META.yml                                 Module meta-data (added by MakeMaker)

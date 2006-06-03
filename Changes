@@ -1,5 +1,11 @@
 Revision history for ack
 
+1.16    Fri Jun  2 23:50:10 CDT 2006
+        [FIXES]
+        * The -n flag was not working.  Using -n would find no files
+          at all.  And added some more unit tests to make sure I don't
+          screw it up again.
+
 1.14    Tue May 30 23:12:43 CDT 2006
         [ENHANCEMENTS]
         * Added -f flag to only show the files that would be searched,

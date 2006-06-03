@@ -3,7 +3,7 @@
 use warnings;
 use strict;
 
-use Test::More tests => 3;
+use Test::More tests => 5;
 
 BEGIN {
     use_ok( 'App::Ack' );
@@ -20,7 +20,7 @@ sub is_perl {
 
 PERL_FILES: {
     my @files;
-    my $iter = interesting_files( \&is_perl, 1, 't/swamp' );
+    my $iter = interesting_files( \&is_perl, 0, 't/swamp' );
 
     while ( my $file = $iter->() ) {
         push( @files, $file );
@@ -45,7 +45,7 @@ sub is_parrot {
     return;
 }
 
-PARROT_FILES: {
+PARROT_FILES_DESCEND: {
     my @files;
     my $iter = interesting_files( \&is_parrot, 1, 't' );
 
@@ -57,4 +57,29 @@ PARROT_FILES: {
         t/swamp/parrot.pir
         t/swamp/perl.pod
     )] );
+}
+
+PARROT_FILES_NODESCEND: {
+    my @files;
+    my $iter = interesting_files( \&is_parrot, 0, 't/swamp' );
+
+    while ( my $file = $iter->() ) {
+        push( @files, $file );
+    }
+
+    is_deeply( [sort @files], [sort qw(
+        t/swamp/parrot.pir
+        t/swamp/perl.pod
+    )] );
+}
+
+PARROT_FILES_NODESCEND_EMPTY: {
+    my @files;
+    my $iter = interesting_files( \&is_parrot, 0, 't/' );
+
+    while ( my $file = $iter->() ) {
+        push( @files, $file );
+    }
+
+    is_deeply( [@files], [] );
 }

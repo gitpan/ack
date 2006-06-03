@@ -9,11 +9,11 @@ App::Ack - A container for functions for the ack program
 
 =head1 VERSION
 
-Version 1.14
+Version 1.16
 
 =cut
 
-our $VERSION = '1.14';
+our $VERSION = '1.16';
 
 use base 'Exporter';
 
@@ -52,11 +52,9 @@ F<foo.pod> could be "perl" or "parrot".
 our %types;
 
 sub _set_up_types {
-    my @args = @_;
-
-    while ( @args ) {
-        my $type = shift @args;
-        my $exts = shift @args;
+    while ( @_ ) {
+        my $type = shift;
+        my $exts = shift;
 
         for my $ext ( @$exts ) {
             push( @{$types{$ext}}, $type );
@@ -119,24 +117,14 @@ Stolen from Mark Jason Dominus' marvelous I<Higher Order Perl>, page 126.
 sub interesting_files {
     my $is_interesting = shift;
     my $should_descend = shift;
-    my @queue = @_;
-
-    my %ignore_dirs = map { ($_,1) } qw( . .. CVS RCS .svn _darcs blib );
+    my @queue = map { _candidate_files($_) } @_;
 
     return sub {
         while (@queue) {
             my $file = shift @queue;
 
             if (-d $file) {
-                next unless $should_descend;
-                my $dh;
-                if ( !opendir $dh, $file ) {
-                    warn "ack: $file: $!\n";
-                    next;
-                }
-                my @newfiles = grep { !$ignore_dirs{$_} } readdir $dh;
-                @newfiles = map "$file/$_", @newfiles;
-                push( @queue, @newfiles );
+                push( @queue, _candidate_files( $file ) ) if $should_descend;
             }
             elsif (-f $file) {
                 return $file if $is_interesting->($file);
@@ -146,6 +134,20 @@ sub interesting_files {
     }; # iterator
 }
 
+our %ignore_dirs = map { ($_,1) } qw( . .. CVS RCS .svn _darcs blib );
+sub _candidate_files {
+    my $dir = shift;
+
+    my $dh;
+    if ( !opendir $dh, $dir ) {
+        warn "ack: $dir: $!\n";
+        return;
+    }
+
+    my @newfiles = grep { !$ignore_dirs{$_} } readdir $dh;
+    @newfiles = map "$dir/$_", @newfiles;
+    return @newfiles;
+}
 
 =head1 AUTHOR
 
