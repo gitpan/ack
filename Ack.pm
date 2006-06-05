@@ -9,11 +9,11 @@ App::Ack - A container for functions for the ack program
 
 =head1 VERSION
 
-Version 1.16
+Version 1.17_01
 
 =cut
 
-our $VERSION = '1.16';
+our $VERSION = '1.17_01';
 
 use base 'Exporter';
 
@@ -110,7 +110,8 @@ in I<@starting_points>.  If I<$should_descend> is false, don't descend
 into subdirectories. Each file to see if it's interesting is passed to
 I<is_interesting>, which must return true.
 
-Stolen from Mark Jason Dominus' marvelous I<Higher Order Perl>, page 126.
+All file-finding in this module is adapted from Mark Jason Dominus'
+marvelous I<Higher Order Perl>, page 126.
 
 =cut
 
@@ -137,6 +138,8 @@ sub interesting_files {
 our %ignore_dirs = map { ($_,1) } qw( . .. CVS RCS .svn _darcs blib );
 sub _candidate_files {
     my $dir = shift;
+
+    return $dir unless -d $dir;
 
     my $dh;
     if ( !opendir $dh, $dir ) {

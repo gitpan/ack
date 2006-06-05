@@ -3,7 +3,7 @@
 use warnings;
 use strict;
 
-use Test::More tests => 5;
+use Test::More tests => 6;
 
 BEGIN {
     use_ok( 'App::Ack' );
@@ -21,6 +21,26 @@ sub is_perl {
 PERL_FILES: {
     my @files;
     my $iter = interesting_files( \&is_perl, 0, 't/swamp' );
+
+    while ( my $file = $iter->() ) {
+        push( @files, $file );
+    }
+
+    is_deeply( [sort @files], [sort qw(
+        t/swamp/Makefile.PL
+        t/swamp/perl.pl
+        t/swamp/perl.pm
+        t/swamp/perl.pod
+        t/swamp/perl-test.t
+        t/swamp/perl-without-extension
+    )] );
+}
+
+PERL_FILES_GLOBBED: {
+    # We have to be able to handle starting locations that are files.
+    my @files;
+    my @starters = grep { !/blib/ } glob( "t/swamp/*" );
+    my $iter = interesting_files( \&is_perl, 0, @starters );
 
     while ( my $file = $iter->() ) {
         push( @files, $file );

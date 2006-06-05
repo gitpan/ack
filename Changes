@@ -1,5 +1,13 @@
 Revision history for ack
 
+1.17_01 Mon Jun  5 12:04:38 CDT 2006
+        [FIXES]
+        * Starting points for files can be files, not just directories.
+          This broke in 1.16.
+
+        [ENHANCEMENTS]
+        * ack can now read from STDIN as a filter, like any good program.
+
 1.16    Fri Jun  2 23:50:10 CDT 2006
         [FIXES]
         * The -n flag was not working.  Using -n would find no files
