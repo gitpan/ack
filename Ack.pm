@@ -9,15 +9,15 @@ App::Ack - A container for functions for the ack program
 
 =head1 VERSION
 
-Version 1.17_01
+Version 1.17_02
 
 =cut
 
-our $VERSION = '1.17_01';
+our $VERSION = '1.17_02';
 
 use base 'Exporter';
 
-our @EXPORT = qw( filetypes is_filetype interesting_files );
+our @EXPORT = qw( filetypes is_filetype interesting_files _candidate_files );
 
 =head1 SYNOPSIS
 
@@ -135,20 +135,43 @@ sub interesting_files {
     }; # iterator
 }
 
+=head2 _candidate_files( $dir )
+
+Pulls out the files/dirs that might be worth looking into in I<$dir>.
+If I<$dir> is the empty string, then search the current directory.
+This is different than explicitly passing in a ".", because that
+will get prepended to the path names.
+
+=cut
+
 our %ignore_dirs = map { ($_,1) } qw( . .. CVS RCS .svn _darcs blib );
 sub _candidate_files {
     my $dir = shift;
 
-    return $dir unless -d $dir;
+    my @newfiles;
 
-    my $dh;
-    if ( !opendir $dh, $dir ) {
-        warn "ack: $dir: $!\n";
-        return;
+    # TODO Refactor out the redundancy
+    if ( $dir eq "" ) {
+        my $dh;
+        if ( !opendir $dh, "." ) {
+            warn "ack: in current directory: $!\n";
+            return;
+        }
+
+        @newfiles = grep { !$ignore_dirs{$_} } readdir $dh;
     }
+    else {
+        return $dir unless -d $dir;
 
-    my @newfiles = grep { !$ignore_dirs{$_} } readdir $dh;
-    @newfiles = map "$dir/$_", @newfiles;
+        my $dh;
+        if ( !opendir $dh, $dir ) {
+            warn "ack: $dir: $!\n";
+            return;
+        }
+
+        @newfiles = grep { !$ignore_dirs{$_} } readdir $dh;
+        @newfiles = map "$dir/$_", @newfiles;
+    }
     return @newfiles;
 }
 

@@ -1,5 +1,17 @@
 Revision history for ack
 
+NEXT    Tue Jun  6 14:32:38 CDT 2006
+        [FIXES]
+        * The -v flag would print out empty blank lines when it
+          shouldn't.  Now it works.
+
+        [ENHANCEMENTS]
+        * Added the -H flag to always print filenames
+
+        * Filenames no longer have "./" prepended unless you specify
+          "." as a directory to search.
+
+
 1.17_01 Mon Jun  5 12:04:38 CDT 2006
         [FIXES]
         * Starting points for files can be files, not just directories.

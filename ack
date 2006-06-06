@@ -30,6 +30,7 @@ my %options = (
     a           => \$opt{all},
     f           => \$opt{f},
     h           => \$opt{h},
+    H           => \$opt{H},
     i           => \$opt{i},
     l           => \$opt{l},
     "m=i"       => \$opt{m},
@@ -83,25 +84,33 @@ if ( !$opt{f} ) {
     }
 }
 
-my $is_filter = -t STDIN;
+
+
+my $is_filter = !-t STDIN;
 my @what;
 if ( @ARGV ) {
     @what = @ARGV;
+
+    # Show filenames unless we've specified one single file
+    $opt{show_filename} = (@what > 1) || (!-f $what[0]);
 }
 else {
     if ( $is_filter ) {
-        @what = ".";
-    }
-    else {
         # We're going into filter mode
         for ( qw( f l ) ) {
             $opt{$_} and die "ack: Can't use -$_ when acting as a filter.\n";
         }
-        $opt{h} = 1; # Don't print filenames
+        $opt{show_filename} = 0;
         search( "-", $re, %opt );
         exit 0;
     }
+    else {
+        @what = ""; # Assume current directory
+        $opt{show_filename} = 1;
+    }
 }
+$opt{show_filename} = 0 if $opt{h};
+$opt{show_filename} = 1 if $opt{H};
 
 my $iter = interesting_files( \&is_interesting, !$opt{n}, @what );
 
@@ -149,14 +158,11 @@ sub search {
     while (<$fh>) {
         if ( /$re/ ) {
             ++$nmatches;
-
-            if ( $opt{l} ) {
-                print "$filename\n";
-                last;
+            if ( $nmatches == 1 ) {
+                # No point in searching more if we only want a list
+                last if $opt{l};
             }
-
-            # No point in still searching if we know we want negative match
-            last if $opt{v};
+            next if $opt{v};
 
             my $out;
 
@@ -168,26 +174,36 @@ sub search {
                 $out =~ s/($re)/colored($1,"black on_yellow")/eg if $opt{color};
             }
 
-            if ( $opt{h} ) {
-                print $out;
-            }
-            else {
+            if ( $opt{show_filename} ) {
                 my $colorname = $opt{color} ? colored( $filename, "bold green" ) : $filename;
                 if ( $opt{group} ) {
                     print "$colorname\n" if $nmatches == 1;
                     print "$.:$out";
                 }
                 else {
-                    print "$colorname:$.:$out";
+                    print "${colorname}:$.:$out";
                 }
+            }
+            else {
+                print $out;
             }
 
             last if $opt{m} && ( $nmatches >= $opt{m} );
         } # match
+        else { # no match
+            if ( $opt{v} ) {
+                print "${filename}:" if $opt{show_filename};
+                print $_;
+            }
+        }
     } # while
 
-    print "$filename\n" if $opt{v} && !$nmatches;
-    print "\n" if $nmatches && ($opt{group} && !$opt{l});
+    if ( $opt{l} ) {
+        print "$filename\n" if ($opt{v} && !$nmatches) || ($nmatches && !$opt{v});
+    }
+    else {
+        print "\n" if $nmatches && $opt{show_filename} && $opt{group} && !$opt{v};
+    }
 
     close $fh;
 }
@@ -254,7 +270,8 @@ Search output:
     -l                only print filenames containing matches
     -o                show only the part of a line matching PATTERN
     -m=NUM            stop after NUM matches
-    -h                don't print filenames
+    -H                print the filename for each match
+    -h                suppress the prefixing filename on output
     --[no]group       print a blank line between each file's matches
                       (default: on unless output is redirected)
     --[no]color       highlight the matching text (default: on unless
