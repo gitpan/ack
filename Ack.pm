@@ -9,15 +9,15 @@ App::Ack - A container for functions for the ack program
 
 =head1 VERSION
 
-Version 1.17_02
+Version 1.20
 
 =cut
 
-our $VERSION = '1.17_02';
+our $VERSION = '1.20';
 
 use base 'Exporter';
 
-our @EXPORT = qw( filetypes is_filetype interesting_files _candidate_files );
+our @EXPORT = qw( filetypes filetypes_supported is_filetype interesting_files _candidate_files _thpppt );
 
 =head1 SYNOPSIS
 
@@ -42,6 +42,29 @@ sub is_filetype {
     return;
 }
 
+our %types;
+our %mappings = (
+    cc          => [qw( c h )],
+    javascript  => [qw( js )],
+    parrot      => [qw( pir pasm pmc ops pod )],
+    perl        => [qw( pl pm pod tt ttml t )],
+    php         => [qw( php phpt htm html )],
+    python      => [qw( py )],
+    ruby        => [qw( rb )],
+    shell       => [qw( sh bash csh ksh zsh )],
+    sql         => [qw( sql ctl )],
+    yaml        => [qw( yaml )],
+);
+
+sub _init_types {
+    while ( my ($type,$exts) = each %mappings ) {
+        for my $ext ( @$exts ) {
+            push( @{$types{$ext}}, $type );
+        }
+    }
+}
+
+
 =head2 filetypes( $filename )
 
 Returns a list of types that I<$filename> could be.  For example, a file
@@ -49,33 +72,10 @@ F<foo.pod> could be "perl" or "parrot".
 
 =cut
 
-our %types;
-
-sub _set_up_types {
-    while ( @_ ) {
-        my $type = shift;
-        my $exts = shift;
-
-        for my $ext ( @$exts ) {
-            push( @{$types{$ext}}, $type );
-        }
-    }
-}
-
 sub filetypes {
     my $filename = shift;
 
-    _set_up_types(
-        cc          => [qw( c h )],
-        perl        => [qw( pl pm pod tt ttml t )],
-        parrot      => [qw( pir pasm pmc ops pod )],
-        php         => [qw( php phpt htm html )],
-        python      => [qw( py )],
-        ruby        => [qw( rb )],
-        shell       => [qw( sh bash csh ksh zsh )],
-        sql         => [qw( sql ctl )],
-        javascript  => [qw( js )],
-    ) unless keys %types;
+    _init_types() unless keys %types;
 
     if ( $filename =~ /\.([^.]+)$/ ) {
         my $ref = $types{lc $1};
@@ -101,6 +101,16 @@ sub filetypes {
     }
 
     return;
+}
+
+=head2 filetypes_supported()
+
+Returns a list of all the types that we can detect.
+
+=cut
+
+sub filetypes_supported {
+    return keys %mappings;
 }
 
 =head2 interesting_files( \&is_interesting, $should_descend, @starting points )
@@ -173,6 +183,12 @@ sub _candidate_files {
         @newfiles = map "$dir/$_", @newfiles;
     }
     return @newfiles;
+}
+
+sub _thpppt {
+    my $y = q{_   /|,\\'!.x',=(www)=,   U   };
+    $y =~ tr/,x!w/\nOo_/;
+    print "$y ack --$_[0]!\n" and exit 0;
 }
 
 =head1 AUTHOR

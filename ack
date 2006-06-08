@@ -11,7 +11,7 @@ BEGIN {
     eval { use Term::ANSIColor } unless $is_windows;
 }
 
-use App::Ack qw( filetypes interesting_files );
+use App::Ack qw( filetypes filetypes_supported interesting_files _thpppt );
 use Getopt::Long;
 
 our %opt;
@@ -24,10 +24,9 @@ $opt{all} =     0;
 $opt{help} =    0;
 $opt{m} =       0;
 
-our @languages_supported = qw( cc javascript parrot perl php python ruby shell sql );
-
 my %options = (
     a           => \$opt{all},
+    "all!"      => \$opt{all},
     f           => \$opt{f},
     h           => \$opt{h},
     H           => \$opt{H},
@@ -38,13 +37,21 @@ my %options = (
     o           => \$opt{o},
     v           => \$opt{v},
     w           => \$opt{w},
-    "all!"      => \$opt{all},
+
     "group!"    => \$opt{group},
     "color!"    => \$opt{color},
     "help"      => \$opt{help},
     "version"   => sub { print "ack $App::Ack::VERSION\n" and exit 1; },
 );
-for my $i ( @languages_supported ) {
+
+for my $bp qw( b p ) {
+    for my $n ( 1..6 ) {
+        $options{"th".${bp}x$n."t"} = \&_thpppt;
+    }
+}
+
+my @filetypes_supported = filetypes_supported();
+for my $i ( @filetypes_supported ) {
     $options{ "$i!" } = \$lang{ $i };
 }
 $options{ "js!" } = \$lang{ javascript };
@@ -52,15 +59,14 @@ $options{ "js!" } = \$lang{ javascript };
 # Stick any default switches at the beginning, so they can be overridden
 # by the command line switches.
 unshift @ARGV, split( " ", $ENV{ACK_SWITCHES} ) if defined $ENV{ACK_SWITCHES};
-
 Getopt::Long::Configure( "bundling" );
-GetOptions( %options ) or $opt{help} = 1;
+GetOptions( %options ) or die "ack --help for options.\n";
 
-my $languages_supported_set =   grep { defined $lang{$_} && ($lang{$_} == 1) } @languages_supported;
-my $languages_supported_unset = grep { defined $lang{$_} && ($lang{$_} == 0) } @languages_supported;
+my $filetypes_supported_set =   grep { defined $lang{$_} && ($lang{$_} == 1) } @filetypes_supported;
+my $filetypes_supported_unset = grep { defined $lang{$_} && ($lang{$_} == 0) } @filetypes_supported;
 
 # If anyone says --noperl, we assume all other languages must be on.
-if ( !$languages_supported_set ) {
+if ( !$filetypes_supported_set ) {
     for ( keys %lang ) {
         $lang{$_} = 1 unless defined $lang{$_};
     }
@@ -83,7 +89,6 @@ if ( !$opt{f} ) {
         $re = $opt{i} ? qr/$re/i : qr/$re/;
     }
 }
-
 
 
 my $is_filter = !-t STDIN;
@@ -294,11 +299,13 @@ File inclusion/exclusion:
     --[no]python      .py
     --[no]ruby        .rb
     --[no]shell       shell scripts
-    --[no]sql         .sql and .ctl files
+    --[no]sql         .sql and .ctl
+    --[no]yaml        .yaml
 
 Miscellaneous:
     --help            this help
     --version         display version
+    --thpppt          Bill the Cat
 
 
 GOTCHAS:

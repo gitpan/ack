@@ -9,7 +9,7 @@ BEGIN {
     use_ok( 'App::Ack' );
 }
 
-is_deeply( [filetypes( "foo.pod" )], [qw( perl parrot )], 'foo.pod can be multiple things' );
+is_deeply( [sort(filetypes( "foo.pod" ))], [qw( parrot perl )], 'foo.pod can be multiple things' );
 is_deeply( [filetypes( "Bongo.pm" )], [qw( perl )], 'Bongo.pm' );
 is_deeply( [filetypes( "Makefile.PL" )], [qw( perl )], 'Makefile.PL' );
 is_deeply( [filetypes( "Unknown.wango" )], [], 'Unknown' );
