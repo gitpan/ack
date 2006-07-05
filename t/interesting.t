@@ -3,7 +3,7 @@
 use warnings;
 use strict;
 
-use Test::More tests => 6;
+use Test::More tests => 7;
 
 BEGIN {
     use_ok( 'App::Ack' );
@@ -103,3 +103,15 @@ PARROT_FILES_NODESCEND_EMPTY: {
 
     is_deeply( [@files], [] );
 }
+
+PERL_FILES_BY_NAME: {
+    my @files;
+    my $iter = interesting_files( \&is_parrot, 0, 't/swamp/perl.pod' );
+
+    while ( my $file = $iter->() ) {
+        push( @files, $file );
+    }
+
+    is_deeply( [sort @files], [sort qw( t/swamp/perl.pod )] );
+}
+

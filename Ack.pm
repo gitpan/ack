@@ -9,15 +9,15 @@ App::Ack - A container for functions for the ack program
 
 =head1 VERSION
 
-Version 1.20
+Version 1.22
 
 =cut
 
-our $VERSION = '1.20';
+our $VERSION = '1.22';
 
 use base 'Exporter';
 
-our @EXPORT = qw( filetypes filetypes_supported is_filetype interesting_files _candidate_files _thpppt );
+our @EXPORT = qw( filetypes filetypes_supported is_filetype interesting_files _candidate_files );
 
 =head1 SYNOPSIS
 
@@ -188,7 +188,7 @@ sub _candidate_files {
 sub _thpppt {
     my $y = q{_   /|,\\'!.x',=(www)=,   U   };
     $y =~ tr/,x!w/\nOo_/;
-    print "$y ack --$_[0]!\n" and exit 0;
+    print "$y ack $_[0]!\n" and exit 0;
 }
 
 =head1 AUTHOR

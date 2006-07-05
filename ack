@@ -11,7 +11,7 @@ BEGIN {
     eval { use Term::ANSIColor } unless $is_windows;
 }
 
-use App::Ack qw( filetypes filetypes_supported interesting_files _thpppt );
+use App::Ack qw( filetypes filetypes_supported interesting_files );
 use Getopt::Long;
 
 our %opt;
@@ -27,6 +27,8 @@ $opt{m} =       0;
 my %options = (
     a           => \$opt{all},
     "all!"      => \$opt{all},
+    c           => \$opt{count},
+    count       => \$opt{count},
     f           => \$opt{f},
     h           => \$opt{h},
     H           => \$opt{H},
@@ -44,12 +46,6 @@ my %options = (
     "version"   => sub { print "ack $App::Ack::VERSION\n" and exit 1; },
 );
 
-for my $bp qw( b p ) {
-    for my $n ( 1..6 ) {
-        $options{"th".${bp}x$n."t"} = \&_thpppt;
-    }
-}
-
 my @filetypes_supported = filetypes_supported();
 for my $i ( @filetypes_supported ) {
     $options{ "$i!" } = \$lang{ $i };
@@ -59,6 +55,8 @@ $options{ "js!" } = \$lang{ javascript };
 # Stick any default switches at the beginning, so they can be overridden
 # by the command line switches.
 unshift @ARGV, split( " ", $ENV{ACK_SWITCHES} ) if defined $ENV{ACK_SWITCHES};
+
+map { App::Ack::_thpppt($_) if /^--th[bp]+t$/ } @ARGV;
 Getopt::Long::Configure( "bundling" );
 GetOptions( %options ) or die "ack --help for options.\n";
 
@@ -161,37 +159,38 @@ sub search {
 
     local $_;
     while (<$fh>) {
-        if ( /$re/ ) {
+        if ( /$re/ ) { # If we have a matching line
             ++$nmatches;
-            if ( $nmatches == 1 ) {
-                # No point in searching more if we only want a list
-                last if $opt{l};
-            }
-            next if $opt{v};
+            if ( !$opt{count} ) {
+                if ( $nmatches == 1 ) {
+                    # No point in searching more if we only want a list
+                    last if $opt{l};
+                }
+                next if $opt{v};
 
-            my $out;
-
-            if ( $opt{o} ) {
-                $out = "$&\n";
-            }
-            else {
-                $out = $_;
-                $out =~ s/($re)/colored($1,"black on_yellow")/eg if $opt{color};
-            }
-
-            if ( $opt{show_filename} ) {
-                my $colorname = $opt{color} ? colored( $filename, "bold green" ) : $filename;
-                if ( $opt{group} ) {
-                    print "$colorname\n" if $nmatches == 1;
-                    print "$.:$out";
+                my $out;
+                if ( $opt{o} ) {
+                    $out = "$&\n";
                 }
                 else {
-                    print "${colorname}:$.:$out";
+                    $out = $_;
+                    $out =~ s/($re)/colored($1,"black on_yellow")/eg if $opt{color};
                 }
-            }
-            else {
-                print $out;
-            }
+
+                if ( $opt{show_filename} ) {
+                    my $colorname = $opt{color} ? colored( $filename, "bold green" ) : $filename;
+                    if ( $opt{group} ) {
+                        print "$colorname\n" if $nmatches == 1;
+                        print "$.:$out";
+                    }
+                    else {
+                        print "${colorname}:$.:$out";
+                    }
+                }
+                else {
+                    print $out;
+                }
+            } # Not just --count
 
             last if $opt{m} && ( $nmatches >= $opt{m} );
         } # match
@@ -202,15 +201,19 @@ sub search {
             }
         }
     } # while
+    close $fh;
 
-    if ( $opt{l} ) {
-        print "$filename\n" if ($opt{v} && !$nmatches) || ($nmatches && !$opt{v});
+    if ( $opt{count} ) {
+        print "${filename}:${nmatches}\n";
     }
     else {
-        print "\n" if $nmatches && $opt{show_filename} && $opt{group} && !$opt{v};
+        if ( $opt{l} ) {
+            print "$filename\n" if ($opt{v} && !$nmatches) || ($nmatches && !$opt{v});
+        }
+        else {
+            print "\n" if $nmatches && $opt{show_filename} && $opt{group} && !$opt{v};
+        }
     }
-
-    close $fh;
 }
 
 
@@ -277,6 +280,7 @@ Search output:
     -m=NUM            stop after NUM matches
     -H                print the filename for each match
     -h                suppress the prefixing filename on output
+    -c, --count       show number of lines matching per file
     --[no]group       print a blank line between each file's matches
                       (default: on unless output is redirected)
     --[no]color       highlight the matching text (default: on unless
