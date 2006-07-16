@@ -9,15 +9,11 @@ App::Ack - A container for functions for the ack program
 
 =head1 VERSION
 
-Version 1.22
+Version 1.24
 
 =cut
 
-our $VERSION = '1.22';
-
-use base 'Exporter';
-
-our @EXPORT = qw( filetypes filetypes_supported is_filetype interesting_files _candidate_files );
+our $VERSION = '1.24';
 
 =head1 SYNOPSIS
 
@@ -46,7 +42,7 @@ our %types;
 our %mappings = (
     cc          => [qw( c h )],
     javascript  => [qw( js )],
-    parrot      => [qw( pir pasm pmc ops pod )],
+    parrot      => [qw( pir pasm pmc ops pod pg tg )],
     perl        => [qw( pl pm pod tt ttml t )],
     php         => [qw( php phpt htm html )],
     python      => [qw( py )],
@@ -62,6 +58,8 @@ sub _init_types {
             push( @{$types{$ext}}, $type );
         }
     }
+
+    return;
 }
 
 
@@ -92,11 +90,11 @@ sub filetypes {
         my $header = <$fh>;
         close $fh;
         return unless defined $header;
-        return "perl"   if $header =~ /^#.+\bperl\b/;
-        return "php"    if $header =~ /^#.+\bphp\b/;
-        return "python" if $header =~ /^#.+\bpython\b/;
-        return "ruby"   if $header =~ /^#.+\bruby\b/;
-        return "shell"  if $header =~ /^#.+\b(ba|c|k|z)?sh\b/;
+        return "perl"   if $header =~ /^#!.+\bperl\b/;
+        return "php"    if $header =~ /^#!.+\bphp\b/;
+        return "python" if $header =~ /^#!.+\bpython\b/;
+        return "ruby"   if $header =~ /^#!.+\bruby\b/;
+        return "shell"  if $header =~ /^#!.+\b(ba|c|k|z)?sh\b/;
         return;
     }
 
@@ -180,7 +178,7 @@ sub _candidate_files {
         }
 
         @newfiles = grep { !$ignore_dirs{$_} } readdir $dh;
-        @newfiles = map "$dir/$_", @newfiles;
+        @newfiles = map { "$dir/$_" } @newfiles;
     }
     return @newfiles;
 }
@@ -189,6 +187,30 @@ sub _thpppt {
     my $y = q{_   /|,\\'!.x',=(www)=,   U   };
     $y =~ tr/,x!w/\nOo_/;
     print "$y ack $_[0]!\n" and exit 0;
+}
+
+=head2 show_help()
+
+Dumps the help page to the user.
+
+=cut
+
+sub show_help {
+    my @lines = <DATA>;
+
+    for ( @lines ) {
+        s/(\w+)(\s+)LIST/$1.$2._expand_list($1)/esmx;
+    }
+    print @lines;
+}
+
+sub _expand_list {
+    my $lang = shift;
+
+    my @files = map { ".$_" } @{$mappings{$lang}};
+    my $and = pop @files;
+
+    return @files ? join( ", ", @files ) . " and $and" : $and;
 }
 
 =head1 AUTHOR
@@ -240,3 +262,64 @@ under the same terms as Perl itself.
 =cut
 
 "It's just the normal noises in here."; # End of App::Ack
+
+__DATA__
+Usage: ack [OPTION]... PATTERN [FILES]
+Search for PATTERN in each source file in the tree from cwd on down.
+If [FILES] is specified, then only those files/directories are checked.
+ack may also search STDIN, but only if no FILES are specified, or if
+one of FILES is "-".
+
+Default switches may be specified in ACK_SWITCHES environment variable.
+
+Example: ack -i select
+
+Searching:
+    -i                ignore case distinctions
+    -v                invert match: select non-matching lines
+    -w                force PATTERN to match only whole words
+
+Search output:
+    -l                only print filenames containing matches
+    -o                show only the part of a line matching PATTERN
+    -m=NUM            stop after NUM matches
+    -H                print the filename for each match
+    -h                suppress the prefixing filename on output
+    -c, --count       show number of lines matching per file
+    --[no]group       print a blank line between each file's matches
+                      (default: on unless output is redirected)
+    --[no]color       highlight the matching text (default: on unless
+                      output is redirected, or on Windows)
+
+File finding:
+    -f                only print the files found, without searching.
+                      The PATTERN must not be specified.
+
+File inclusion/exclusion:
+    -n                No descending into subdirectories
+    -a, --all         All files, regardless of extension
+                      (but still skips RCS, CVS, .svn, _darcs and blib dirs)
+    --[no]cc          LIST
+    --[no]javascript  LIST
+    --[no]js          same as --[no]javascript
+    --[no]parrot      LIST
+    --[no]perl        LIST
+    --[no]php         LIST
+    --[no]python      LIST
+    --[no]ruby        LIST
+    --[no]shell       LIST
+    --[no]sql         LIST
+    --[no]yaml        LIST
+
+Miscellaneous:
+    --help            this help
+    --version         display version
+    --thpppt          Bill the Cat
+
+
+GOTCHAS:
+Note that FILES must still match valid selection rules.  For example,
+
+    ack something --perl foo.rb
+
+will search nothing, because foo.rb is a Ruby file.

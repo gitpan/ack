@@ -1,3 +1,4 @@
+package main;
 use 5.6.1;
 use strict;
 use warnings;

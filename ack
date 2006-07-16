@@ -1,5 +1,6 @@
-#!/usr/local/bin/perl -w
+#!/usr/local/bin/perl
 
+use warnings;
 use strict;
 
 our $is_windows;
@@ -11,7 +12,7 @@ BEGIN {
     eval { use Term::ANSIColor } unless $is_windows;
 }
 
-use App::Ack qw( filetypes filetypes_supported interesting_files );
+use App::Ack;
 use Getopt::Long;
 
 our %opt;
@@ -46,7 +47,7 @@ my %options = (
     "version"   => sub { print "ack $App::Ack::VERSION\n" and exit 1; },
 );
 
-my @filetypes_supported = filetypes_supported();
+my @filetypes_supported = App::Ack::filetypes_supported();
 for my $i ( @filetypes_supported ) {
     $options{ "$i!" } = \$lang{ $i };
 }
@@ -71,7 +72,7 @@ if ( !$filetypes_supported_set ) {
 }
 
 if ( $opt{help} || (!@ARGV && !$opt{f}) ) {
-    print <DATA>;  # Show usage
+    App::Ack::show_help();
     exit 1;
 }
 
@@ -115,7 +116,8 @@ else {
 $opt{show_filename} = 0 if $opt{h};
 $opt{show_filename} = 1 if $opt{H};
 
-my $iter = interesting_files( \&is_interesting, !$opt{n}, @what );
+my $filter = $opt{all} ? sub {1} : \&is_interesting;
+my $iter = App::Ack::interesting_files( $filter, !$opt{n}, @what );
 
 while ( my $file = $iter->() ) {
     if ( $opt{f} ) {
@@ -131,9 +133,9 @@ sub is_interesting {
     my $file = shift;
 
     return if $file =~ /~$/;
-    return 1 if $opt{all};
+    return if $file =~ /^\./;
 
-    for my $type ( filetypes( $file ) ) {
+    for my $type ( App::Ack::filetypes( $file ) ) {
         return 1 if $lang{$type};
     }
     return;
@@ -157,7 +159,7 @@ sub search {
         }
     }
 
-    local $_;
+    local $_; ## no critic
     while (<$fh>) {
         if ( /$re/ ) { # If we have a matching line
             ++$nmatches;
@@ -214,8 +216,9 @@ sub search {
             print "\n" if $nmatches && $opt{show_filename} && $opt{group} && !$opt{v};
         }
     }
-}
 
+    return;
+}
 
 =head1 NAME
 
@@ -255,67 +258,3 @@ Key improvements include:
 =back
 
 =cut
-
-1;
-
-__DATA__
-Usage: ack [OPTION]... PATTERN [FILES]
-Search for PATTERN in each source file in the tree from cwd on down.
-If [FILES] is specified, then only those files/directories are checked.
-ack may also search STDIN, but only if no FILES are specified, or if
-one of FILES is "-".
-
-Default switches may be specified in ACK_SWITCHES environment variable.
-
-Example: ack -i select
-
-Searching:
-    -i                ignore case distinctions
-    -v                invert match: select non-matching lines
-    -w                force PATTERN to match only whole words
-
-Search output:
-    -l                only print filenames containing matches
-    -o                show only the part of a line matching PATTERN
-    -m=NUM            stop after NUM matches
-    -H                print the filename for each match
-    -h                suppress the prefixing filename on output
-    -c, --count       show number of lines matching per file
-    --[no]group       print a blank line between each file's matches
-                      (default: on unless output is redirected)
-    --[no]color       highlight the matching text (default: on unless
-                      output is redirected, or on Windows)
-
-File finding:
-    -f                only print the files found, without searching.
-                      The PATTERN must not be specified.
-
-File inclusion/exclusion:
-    -n                No descending into subdirectories
-    -a, --all         All files, regardless of extension
-                      (but still skips RCS, CVS, .svn, _darcs and blib dirs)
-    --[no]cc          .c and .h
-    --[no]javascript  .js
-    --[no]js          same as --[no]javascript
-    --[no]parrot      .pir, .pasm, .pmc, .ops, .pod
-    --[no]perl        .pl, .pm, .pod, .t, .tt and .ttml
-    --[no]php         .html, .php, and .phpt
-    --[no]python      .py
-    --[no]ruby        .rb
-    --[no]shell       shell scripts
-    --[no]sql         .sql and .ctl
-    --[no]yaml        .yaml
-
-Miscellaneous:
-    --help            this help
-    --version         display version
-    --thpppt          Bill the Cat
-
-
-GOTCHAS:
-Note that FILES must still match valid selection rules.  For example,
-
-    ack something --perl foo.rb
-
-will search nothing, because foo.rb is a Ruby file.
-
