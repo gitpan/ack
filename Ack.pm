@@ -9,11 +9,11 @@ App::Ack - A container for functions for the ack program
 
 =head1 VERSION
 
-Version 1.24
+Version 1.25_01
 
 =cut
 
-our $VERSION = '1.24';
+our $VERSION = '1.25_01';
 
 =head1 SYNOPSIS
 
@@ -38,9 +38,24 @@ sub is_filetype {
     return;
 }
 
+our %ignore_dirs = map { ($_,1) } qw( CVS RCS .svn _darcs blib );
+
+=head2 skipdir_filter
+
+Standard filter to pass as a L<File::Next> descend_filter.  It
+returns true if the directory is any of the ones we know we want
+to skip.
+
+=cut
+
+sub skipdir_filter {
+    return !exists $ignore_dirs{$_};
+}
+
 our %types;
 our %mappings = (
     cc          => [qw( c h )],
+    css         => [qw( css )],
     javascript  => [qw( js )],
     parrot      => [qw( pir pasm pmc ops pod pg tg )],
     perl        => [qw( pl pm pod tt ttml t )],
@@ -49,7 +64,7 @@ our %mappings = (
     ruby        => [qw( rb )],
     shell       => [qw( sh bash csh ksh zsh )],
     sql         => [qw( sql ctl )],
-    yaml        => [qw( yaml )],
+    yaml        => [qw( yaml yml )],
 );
 
 sub _init_types {
@@ -83,18 +98,18 @@ sub filetypes {
     # No extension?  See if it has a shebang line
     if ( $filename !~ /\./ ) {
         my $fh;
-        if ( !open( $fh, "<", $filename ) ) {
+        if ( !open( $fh, '<', $filename ) ) {
             warn "ack: $filename: $!\n";
             return;
         }
         my $header = <$fh>;
         close $fh;
         return unless defined $header;
-        return "perl"   if $header =~ /^#!.+\bperl\b/;
-        return "php"    if $header =~ /^#!.+\bphp\b/;
-        return "python" if $header =~ /^#!.+\bpython\b/;
-        return "ruby"   if $header =~ /^#!.+\bruby\b/;
-        return "shell"  if $header =~ /^#!.+\b(ba|c|k|z)?sh\b/;
+        return 'perl'   if $header =~ /^#!.+\bperl\b/;
+        return 'php'    if $header =~ /^#!.+\bphp\b/;
+        return 'python' if $header =~ /^#!.+\bpython\b/;
+        return 'ruby'   if $header =~ /^#!.+\bruby\b/;
+        return 'shell'  if $header =~ /^#!.+\b(ba|c|k|z)?sh\b/;
         return;
     }
 
@@ -111,82 +126,11 @@ sub filetypes_supported {
     return keys %mappings;
 }
 
-=head2 interesting_files( \&is_interesting, $should_descend, @starting points )
-
-Returns an iterator that walks directories starting with the items
-in I<@starting_points>.  If I<$should_descend> is false, don't descend
-into subdirectories. Each file to see if it's interesting is passed to
-I<is_interesting>, which must return true.
-
-All file-finding in this module is adapted from Mark Jason Dominus'
-marvelous I<Higher Order Perl>, page 126.
-
-=cut
-
-sub interesting_files {
-    my $is_interesting = shift;
-    my $should_descend = shift;
-    my @queue = map { _candidate_files($_) } @_;
-
-    return sub {
-        while (@queue) {
-            my $file = shift @queue;
-
-            if (-d $file) {
-                push( @queue, _candidate_files( $file ) ) if $should_descend;
-            }
-            elsif (-f $file) {
-                return $file if $is_interesting->($file);
-            }
-        } # while
-        return;
-    }; # iterator
-}
-
-=head2 _candidate_files( $dir )
-
-Pulls out the files/dirs that might be worth looking into in I<$dir>.
-If I<$dir> is the empty string, then search the current directory.
-This is different than explicitly passing in a ".", because that
-will get prepended to the path names.
-
-=cut
-
-our %ignore_dirs = map { ($_,1) } qw( . .. CVS RCS .svn _darcs blib );
-sub _candidate_files {
-    my $dir = shift;
-
-    my @newfiles;
-
-    # TODO Refactor out the redundancy
-    if ( $dir eq "" ) {
-        my $dh;
-        if ( !opendir $dh, "." ) {
-            warn "ack: in current directory: $!\n";
-            return;
-        }
-
-        @newfiles = grep { !$ignore_dirs{$_} } readdir $dh;
-    }
-    else {
-        return $dir unless -d $dir;
-
-        my $dh;
-        if ( !opendir $dh, $dir ) {
-            warn "ack: $dir: $!\n";
-            return;
-        }
-
-        @newfiles = grep { !$ignore_dirs{$_} } readdir $dh;
-        @newfiles = map { "$dir/$_" } @newfiles;
-    }
-    return @newfiles;
-}
-
 sub _thpppt {
     my $y = q{_   /|,\\'!.x',=(www)=,   U   };
     $y =~ tr/,x!w/\nOo_/;
-    print "$y ack $_[0]!\n" and exit 0;
+    print "$y ack $_[0]!\n";
+    exit 0;
 }
 
 =head2 show_help()
@@ -202,6 +146,8 @@ sub show_help {
         s/(\w+)(\s+)LIST/$1.$2._expand_list($1)/esmx;
     }
     print @lines;
+
+    return;
 }
 
 sub _expand_list {
@@ -210,7 +156,7 @@ sub _expand_list {
     my @files = map { ".$_" } @{$mappings{$lang}};
     my $and = pop @files;
 
-    return @files ? join( ", ", @files ) . " and $and" : $and;
+    return @files ? join( ', ', @files ) . " and $and" : $and;
 }
 
 =head1 AUTHOR
@@ -248,6 +194,10 @@ L<http://rt.cpan.org/NoAuth/Bugs.html?Dist=ack>
 
 L<http://search.cpan.org/dist/ack>
 
+=item * Subversion repository
+
+L<http://ack.googlecode.com/svn/>
+
 =back
 
 =head1 ACKNOWLEDGEMENTS
@@ -261,7 +211,7 @@ under the same terms as Perl itself.
 
 =cut
 
-"It's just the normal noises in here."; # End of App::Ack
+1; # End of App::Ack
 
 __DATA__
 Usage: ack [OPTION]... PATTERN [FILES]

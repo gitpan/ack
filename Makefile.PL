@@ -9,13 +9,14 @@ WriteMakefile(
     AUTHOR              => 'Andy Lester <andy@petdance.com>',
     ABSTRACT            => 'A grep-like program specifically for large source trees',
     VERSION_FROM        => 'Ack.pm',
-    PM                  => { "Ack.pm" => '$(INST_LIBDIR)/App/Ack.pm' },
+    PM                  => { 'Ack.pm' => '$(INST_LIBDIR)/App/Ack.pm' },
     MAN3PODS            => {}, # App::Ack's docs aren't useful
     EXE_FILES           => [ 'ack' ],
     PREREQ_PM => {
         'Term::ANSIColor' => 0,
         'Getopt::Long' => 0,
         'Test::More' => 0,
+        'File::Next' => 0.22,
     },
     dist                => { COMPRESS => 'gzip -9f', SUFFIX => 'gz', },
     clean               => { FILES => 'ack-*' },
@@ -30,5 +31,10 @@ tags:
 		--exclude=blib --exclude=t/lib \
 		--exclude=.svn --exclude='*~' \
 		--languages=Perl --langmap=Perl:+.t \
+
+critic:
+	perlcritic -1 .
+
 MAKE_FRAG
 }
+1;

@@ -4,14 +4,16 @@ use warnings;
 use strict;
 
 our $is_windows;
+
 BEGIN {
     $is_windows = ($^O =~ /MSWin32/);
 }
 
 BEGIN {
-    eval { use Term::ANSIColor } unless $is_windows;
+    eval 'use Term::ANSIColor' unless $is_windows;
 }
 
+use File::Next 0.22;
 use App::Ack;
 use Getopt::Long;
 
@@ -27,7 +29,7 @@ $opt{m} =       0;
 
 my %options = (
     a           => \$opt{all},
-    "all!"      => \$opt{all},
+    'all!'      => \$opt{all},
     c           => \$opt{count},
     count       => \$opt{count},
     f           => \$opt{f},
@@ -35,30 +37,30 @@ my %options = (
     H           => \$opt{H},
     i           => \$opt{i},
     l           => \$opt{l},
-    "m=i"       => \$opt{m},
+    'm=i'       => \$opt{m},
     n           => \$opt{n},
     o           => \$opt{o},
     v           => \$opt{v},
     w           => \$opt{w},
 
-    "group!"    => \$opt{group},
-    "color!"    => \$opt{color},
-    "help"      => \$opt{help},
-    "version"   => sub { print "ack $App::Ack::VERSION\n" and exit 1; },
+    'group!'    => \$opt{group},
+    'color!'    => \$opt{color},
+    'help'      => \$opt{help},
+    'version'   => sub { print "ack $App::Ack::VERSION\n" and exit 1; },
 );
 
 my @filetypes_supported = App::Ack::filetypes_supported();
 for my $i ( @filetypes_supported ) {
     $options{ "$i!" } = \$lang{ $i };
 }
-$options{ "js!" } = \$lang{ javascript };
+$options{ 'js!' } = \$lang{ javascript };
 
 # Stick any default switches at the beginning, so they can be overridden
 # by the command line switches.
 unshift @ARGV, split( " ", $ENV{ACK_SWITCHES} ) if defined $ENV{ACK_SWITCHES};
 
-map { App::Ack::_thpppt($_) if /^--th[bp]+t$/ } @ARGV;
-Getopt::Long::Configure( "bundling" );
+map { App::Ack::_thpppt($_) if /^--th[bp]+t$/ } @ARGV; ## no critic
+Getopt::Long::Configure( 'bundling' );
 GetOptions( %options ) or die "ack --help for options.\n";
 
 my $filetypes_supported_set =   grep { defined $lang{$_} && ($lang{$_} == 1) } @filetypes_supported;
@@ -79,7 +81,7 @@ if ( $opt{help} || (!@ARGV && !$opt{f}) ) {
 my $re;
 
 if ( !$opt{f} ) {
-    $re = shift or die "No regex specified\n";
+    $re = shift or die 'No regex specified\n';
 
     if ( $opt{w} ) {
         $re = $opt{i} ? qr/\b$re\b/i : qr/\b$re\b/;
@@ -105,19 +107,27 @@ else {
             $opt{$_} and die "ack: Can't use -$_ when acting as a filter.\n";
         }
         $opt{show_filename} = 0;
-        search( "-", $re, %opt );
+        search( '-', $re, %opt );
         exit 0;
     }
     else {
-        @what = ""; # Assume current directory
+        @what = ''; # Assume current directory
         $opt{show_filename} = 1;
     }
 }
 $opt{show_filename} = 0 if $opt{h};
 $opt{show_filename} = 1 if $opt{H};
 
-my $filter = $opt{all} ? sub {1} : \&is_interesting;
-my $iter = App::Ack::interesting_files( $filter, !$opt{n}, @what );
+my $file_filter = $opt{all} ? sub {1} : \&is_interesting;
+my $descend_filter = $opt{n} ? sub {0} : sub {1};
+
+my $iter =
+    File::Next::files( {
+        file_filter     => $file_filter,
+        descend_filter  => $descend_filter,
+        error_handler   => sub { "ack: $_\n" },
+    }, @what );
+
 
 while ( my $file = $iter->() ) {
     if ( $opt{f} ) {
@@ -130,12 +140,11 @@ while ( my $file = $iter->() ) {
 exit 0;
 
 sub is_interesting {
-    my $file = shift;
+    return if /~$/;
+    return if /^\./;
 
-    return if $file =~ /~$/;
-    return if $file =~ /^\./;
-
-    for my $type ( App::Ack::filetypes( $file ) ) {
+    my $filename = $File::Find::name;
+    for my $type ( App::Ack::filetypes( $filename ) ) {
         return 1 if $lang{$type};
     }
     return;
@@ -149,11 +158,11 @@ sub search {
     my $nmatches = 0;
 
     my $fh;
-    if ( $filename eq "-" ) {
+    if ( $filename eq '-' ) {
         $fh = *STDIN;
     }
     else {
-        if ( !open( $fh, "<", $filename ) ) {
+        if ( !open( $fh, '<', $filename ) ) {
             warn "ack: $filename: $!\n";
             return;
         }
@@ -180,7 +189,7 @@ sub search {
                 }
 
                 if ( $opt{show_filename} ) {
-                    my $colorname = $opt{color} ? colored( $filename, "bold green" ) : $filename;
+                    my $colorname = $opt{color} ? colored( $filename, 'bold green' ) : $filename;
                     if ( $opt{group} ) {
                         print "$colorname\n" if $nmatches == 1;
                         print "$.:$out";
