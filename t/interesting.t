@@ -1,6 +1,5 @@
 #!perl -w
 
-$|++;
 use warnings;
 use strict;
 
@@ -11,10 +10,8 @@ BEGIN {
     use_ok( 'App::Ack' );
 }
 
-use Carp;
-
-my $is_perl = sub { return App::Ack::is_filetype( $File::Next::name, 'perl' ) };
-my $is_parrot = sub { return App::Ack::is_filetype( $File::Next::name, 'parrot' ) };
+my $is_perl = sub { return App::Ack::is_filetype( $File::Next::name, 'perl' ) }; ## no critic
+my $is_parrot = sub { return App::Ack::is_filetype( $File::Next::name, 'parrot' ) }; ## no critic
 
 PERL_FILES: {
     my @files;

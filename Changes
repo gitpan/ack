@@ -1,5 +1,22 @@
 Revision history for ack
 
+1.25_02 Thu Aug 17 22:41:28 CDT 2006
+
+        [THINGS THAT MIGHT BREAK YOUR CODE]
+        * Stopped supporting the --javascript option.  I assume
+          that everyone just uses --js.  Tell me if I'm wrong.
+
+        [FIXES]
+        * Fixed bugs in 1.25_01 where it wouldn't skip
+          directories correctly, and wouldn't autodescend into the
+          current directory.
+
+        [ENHANCEMENTS]
+        * -o option now hanldes any given Perl expression for the
+          output.  Thanks to Leland Johnson for the idea.
+        * Now supports --asm, and ignores SCCS directories.
+
+
 1.25_01 Wed Aug 16 18:16:19 CDT 2006
 
         [ENHANCEMENTS]
@@ -9,6 +26,7 @@ Revision history for ack
         [INTERNALS]
         * Now uses File::Next as the file finder.  Not surprisingly,
           File::Next was based on ack's file finder.
+
 
 1.24    Sun Jul 16 01:10:44 CDT 2006
         [ENHANCEMENTS]

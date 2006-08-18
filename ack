@@ -39,7 +39,7 @@ my %options = (
     l           => \$opt{l},
     'm=i'       => \$opt{m},
     n           => \$opt{n},
-    o           => \$opt{o},
+    'o|output:s' => \$opt{o},
     v           => \$opt{v},
     w           => \$opt{w},
 
@@ -49,19 +49,29 @@ my %options = (
     'version'   => sub { print "ack $App::Ack::VERSION\n" and exit 1; },
 );
 
+
 my @filetypes_supported = App::Ack::filetypes_supported();
 for my $i ( @filetypes_supported ) {
     $options{ "$i!" } = \$lang{ $i };
 }
-$options{ 'js!' } = \$lang{ javascript };
 
 # Stick any default switches at the beginning, so they can be overridden
 # by the command line switches.
-unshift @ARGV, split( " ", $ENV{ACK_SWITCHES} ) if defined $ENV{ACK_SWITCHES};
+unshift @ARGV, split( ' ', $ENV{ACK_SWITCHES} ) if defined $ENV{ACK_SWITCHES};
 
 map { App::Ack::_thpppt($_) if /^--th[bp]+t$/ } @ARGV; ## no critic
 Getopt::Long::Configure( 'bundling' );
 GetOptions( %options ) or die "ack --help for options.\n";
+
+if ( defined( my $val = $opt{o} ) ) {
+    if ( $val eq '' ) {
+        $val = '$&';
+    }
+    else {
+        $val = qq{"$val"};
+    }
+    $opt{o} = eval qq[ sub { $val } ];
+}
 
 my $filetypes_supported_set =   grep { defined $lang{$_} && ($lang{$_} == 1) } @filetypes_supported;
 my $filetypes_supported_unset = grep { defined $lang{$_} && ($lang{$_} == 0) } @filetypes_supported;
@@ -111,7 +121,8 @@ else {
         exit 0;
     }
     else {
-        @what = ''; # Assume current directory
+        $opt{defaulted_to_dot} = 1;
+        @what = '.'; # Assume current directory
         $opt{show_filename} = 1;
     }
 }
@@ -119,7 +130,7 @@ $opt{show_filename} = 0 if $opt{h};
 $opt{show_filename} = 1 if $opt{H};
 
 my $file_filter = $opt{all} ? sub {1} : \&is_interesting;
-my $descend_filter = $opt{n} ? sub {0} : sub {1};
+my $descend_filter = $opt{n} ? sub {0} : \&App::Ack::skipdir_filter;
 
 my $iter =
     File::Next::files( {
@@ -143,7 +154,7 @@ sub is_interesting {
     return if /~$/;
     return if /^\./;
 
-    my $filename = $File::Find::name;
+    my $filename = $File::Next::name;
     for my $type ( App::Ack::filetypes( $filename ) ) {
         return 1 if $lang{$type};
     }
@@ -166,6 +177,9 @@ sub search {
             warn "ack: $filename: $!\n";
             return;
         }
+        if ( $opt{defaulted_to_dot} ) {
+            $filename =~ s{^\Q./}{};
+        }
     }
 
     local $_; ## no critic
@@ -181,7 +195,8 @@ sub search {
 
                 my $out;
                 if ( $opt{o} ) {
-                    $out = "$&\n";
+                    $out = $opt{o}->() . "\n";
+                    $opt{show_filename} = 0;
                 }
                 else {
                     $out = $_;
@@ -253,16 +268,6 @@ Key improvements include:
 =item * Uses Perl regular expressions
 
 =item * Highlights matched text
-
-=back
-
-=head1 TODO
-
-=over 4
-
-=item * Search through standard input if no files specified
-
-=item * Add a --[no]comment option to grep inside or exclude comments.
 
 =back
 
