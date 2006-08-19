@@ -1,5 +1,15 @@
 Revision history for ack
 
+1.25_03 Sat Aug 19 01:01:01 CDT 2006
+
+        [ENHANCEMENTS]
+        * Added --binary support.
+        * Fixed docs for --[no]color.  Thanks, Mark Stosberg.
+        * Checks files with non-matching extensions for correct
+          filetype.  For example, a foo.cgi file will now be checked
+          for a shebang line.
+
+
 1.25_02 Thu Aug 17 22:41:28 CDT 2006
 
         [THINGS THAT MIGHT BREAK YOUR CODE]

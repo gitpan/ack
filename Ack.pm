@@ -9,11 +9,11 @@ App::Ack - A container for functions for the ack program
 
 =head1 VERSION
 
-Version 1.25_02
+Version 1.25_03
 
 =cut
 
-our $VERSION = '1.25_02';
+our $VERSION = '1.25_03';
 
 =head1 SYNOPSIS
 
@@ -58,6 +58,7 @@ sub skipdir_filter {
 our %types;
 our %mappings = (
     asm         => [qw( s S )],
+    binary      => q{Binary files as defined by Perl's -B operator},
     cc          => [qw( c h )],
     css         => [qw( css )],
     js          => [qw( js )],
@@ -73,8 +74,10 @@ our %mappings = (
 
 sub _init_types {
     while ( my ($type,$exts) = each %mappings ) {
-        for my $ext ( @$exts ) {
-            push( @{$types{$ext}}, $type );
+        if ( ref $exts ) {
+            for my $ext ( @$exts ) {
+                push( @{$types{$ext}}, $type );
+            }
         }
     }
 
@@ -94,27 +97,30 @@ sub filetypes {
 
     _init_types() unless keys %types;
 
+    # If there's an extension, look it up
     if ( $filename =~ /\.([^.]+)$/ ) {
         my $ref = $types{lc $1};
-        return $ref ? @$ref : ();
+        return @$ref if $ref;
     }
 
-    # No extension?  See if it has a shebang line
-    if ( $filename !~ /\./ ) {
-        my $fh;
-        if ( !open( $fh, '<', $filename ) ) {
-            warn "ack: $filename: $!\n";
-            return;
-        }
-        my $header = <$fh>;
-        close $fh;
-        return unless defined $header;
-        return 'perl'   if $header =~ /^#!.+\bperl\b/;
-        return 'php'    if $header =~ /^#!.+\bphp\b/;
-        return 'python' if $header =~ /^#!.+\bpython\b/;
-        return 'ruby'   if $header =~ /^#!.+\bruby\b/;
-        return 'shell'  if $header =~ /^#!.+\b(ba|c|k|z)?sh\b/;
+    return unless -r $filename;
+    return 'binary' if -B $filename;
+
+    # If there's no extension, or we don't recognize it, check the shebang line
+    my $fh;
+    if ( !open( $fh, '<', $filename ) ) {
+        warn "ack: $filename: $!\n";
         return;
+    }
+    my $header = <$fh>;
+    close $fh;
+    return unless defined $header;
+    if ( $header =~ /^#!/ ) {
+        return 'perl'   if $header =~ /\bperl\b/;
+        return 'php'    if $header =~ /\bphp\b/;
+        return 'python' if $header =~ /\bpython\b/;
+        return 'ruby'   if $header =~ /\bruby\b/;
+        return 'shell'  if $header =~ /\b(ba|c|k|z)?sh\b/;
     }
 
     return;
@@ -158,6 +164,11 @@ sub show_help {
 sub _expand_list {
     my $lang = shift;
 
+    my $ext_list = $mappings{$lang};
+
+    if ( not ref $ext_list ) {
+        return $ext_list;
+    }
     my @files = map { ".$_" } @{$mappings{$lang}};
 
     return _listify( @files );
@@ -248,14 +259,18 @@ Search output:
     -l              only print filenames containing matches
     -o              show only the part of a line matching PATTERN
                     (turns off text highlighting)
-    -o=expr         output the evaluation of expr for each line
+    --output=expr   output the evaluation of expr for each line
                     (turns off text highlighting)
     -m=NUM          stop after NUM matches
     -H              print the filename for each match
     -h              suppress the prefixing filename on output
     -c, --count     show number of lines matching per file
-    --[no]group     print a blank line between each file's matches
-                    (default: on unless output is redirected)
+
+    --group         group matches by file name.
+                    (default: on when used interactively)
+    --nogroup       One result per line, including filename, like grep
+                    (default: on when the output is redirected)
+
     --[no]color     highlight the matching text (default: on unless
                     output is redirected, or on Windows)
 
@@ -278,6 +293,8 @@ File inclusion/exclusion:
     --[no]shell     LIST
     --[no]sql       LIST
     --[no]yaml      LIST
+    --[no]binary    LIST
+                    (default: no binary)
 
 Miscellaneous:
     --help          this help
