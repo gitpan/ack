@@ -24,7 +24,7 @@ WriteMakefile(
 
 sub MY::postamble {
     return <<'MAKE_FRAG';
-.PHONY: tags
+.PHONY: tags critic
 
 tags:
 	ctags -f tags --recurse --totals \
@@ -33,7 +33,7 @@ tags:
 		--languages=Perl --langmap=Perl:+.t \
 
 critic:
-	perlcritic -1 .
+	perlcritic -1 -q .
 
 MAKE_FRAG
 }
