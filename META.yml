@@ -1,10 +1,11 @@
 # http://module-build.sourceforge.net/META-spec.html
 #XXXXXXX This is a prototype!!!  It will change in the future!!! XXXXX#
 name:         ack
-version:      1.26
+version:      1.27_01
 version_from: Ack.pm
 installdirs:  site
 requires:
+    File::Basename:                0
     File::Next:                    0.22
     Getopt::Long:                  0
     Term::ANSIColor:               0

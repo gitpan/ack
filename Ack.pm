@@ -2,6 +2,7 @@ package App::Ack;
 
 use warnings;
 use strict;
+use File::Basename;
 
 =head1 NAME
 
@@ -9,11 +10,11 @@ App::Ack - A container for functions for the ack program
 
 =head1 VERSION
 
-Version 1.26
+Version 1.27_01
 
 =cut
 
-our $VERSION = '1.26';
+our $VERSION = '1.27_01';
 
 =head1 SYNOPSIS
 
@@ -78,16 +79,23 @@ our %mappings = (
     tt          => [qw( tt tt2 )],
     vim         => [qw( vim )],
     yaml        => [qw( yaml yml )],
+    -ignore     => [qw( a o so swp core )],
 );
 
+our @suffixes;
+
 sub _init_types {
+    my %suffixes;
     while ( my ($type,$exts) = each %mappings ) {
         if ( ref $exts ) {
             for my $ext ( @$exts ) {
                 push( @{$types{$ext}}, $type );
+                ++$suffixes{"\\.$ext"};
             }
         }
     }
+
+    @suffixes = keys %suffixes;
 
     return;
 }
@@ -105,9 +113,18 @@ sub filetypes {
 
     _init_types() unless keys %types;
 
+    return '-ignore' if $filename =~ /~$/;
+
+    # Pass our $filename in lowercase so we match lowercase filenames
+    my ($filebase,$dirs,$suffix) = File::Basename::fileparse( lc $filename, @suffixes );
+
+    return '-ignore' if $filebase =~ /^#.+#$/;
+    return '-ignore' if $filebase =~ /^core\.\d+$/;
+
     # If there's an extension, look it up
-    if ( $filename =~ /\.([^.]+)$/ ) {
-        my $ref = $types{lc $1};
+    if ( $suffix ) {
+        $suffix =~ s/^\.//; # Drop the period that File::Basename needs
+        my $ref = $types{lc $suffix};
         return @$ref if $ref;
     }
 
@@ -162,6 +179,7 @@ sub show_help {
 
     my @langlines;
     for my $lang ( sort keys %mappings ) {
+        next if $lang =~ /^-/; # Stuff to not show
         my $ext_list = $mappings{$lang};
 
         if ( ref $ext_list ) {
