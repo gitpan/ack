@@ -1,5 +1,15 @@
 Revision history for ack
 
+1.28    Mon Sep 11 14:10:57 CDT 2006
+
+        [FIXES]
+        * Now requires File::Next 0.28, because previous versions wouldn't
+          die correctly.
+
+        [ENHANCEMENTS]
+        * Added --mason switch
+
+
 1.27_01 Mon Aug 28 17:02:35 CDT 2006
 
         [ENHANCEMENTS]
