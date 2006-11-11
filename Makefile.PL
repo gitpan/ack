@@ -20,11 +20,12 @@ WriteMakefile(
         'File::Basename' => 0,
     },
     dist                => { COMPRESS => 'gzip -9f', SUFFIX => 'gz', },
-    clean               => { FILES => 'ack-*' },
+    clean               => { FILES => 'ack-* crush' },
 );
 
 sub MY::postamble {
-    return <<'MAKE_FRAG';
+    my $file_next_filename = qx(perldoc -l File::Next);
+    my $postamble = <<"MAKE_FRAG";
 .PHONY: tags critic
 
 tags:
@@ -36,6 +37,19 @@ tags:
 critic:
 	perlcritic -1 -q .
 
+ACK             = ack
+APP_ACK_PM      = Ack.pm
+FILE_NEXT_PM    = $file_next_filename
+CRUSH           = crush
+
+crush: \$(ACK) \$(APP_ACK_PM) \$(FILE_NEXT_PM)
+	grep -v 'use App::Ack' \$(ACK) | grep -v 'use File::Next' > \$(CRUSH)
+	cat \$(APP_ACK_PM) \$(FILE_NEXT_PM) >> \$(CRUSH)
+	chmod +x \$(CRUSH)
+
 MAKE_FRAG
+
+    return $postamble;
 }
+
 1;

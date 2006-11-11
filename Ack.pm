@@ -10,16 +10,17 @@ App::Ack - A container for functions for the ack program
 
 =head1 VERSION
 
-Version 1.28
+Version 1.30
 
 =cut
 
-our $VERSION = '1.28';
+our $VERSION = '1.30';
 
 our %mappings = (
     asm         => [qw( s S )],
     binary      => q{Binary files, as defined by Perl's -B op (default: off)},
     cc          => [qw( c h )],
+    cpp         => [qw( cpp m h )],
     css         => [qw( css )],
     elisp       => [qw( el )],
     haskell     => [qw( hs lhs )],
@@ -175,7 +176,64 @@ Dumps the help page to the user.
 =cut
 
 sub show_help {
-    my $help = join "", <DATA>;
+    my $help_template = <<'END_OF_HELP';
+Usage: ack [OPTION]... PATTERN [FILES]
+Search for PATTERN in each source file in the tree from cwd on down.
+If [FILES] is specified, then only those files/directories are checked.
+ack may also search STDIN, but only if no FILES are specified, or if
+one of FILES is "-".
+
+Default switches may be specified in ACK_SWITCHES environment variable.
+
+Example: ack -i select
+
+Searching:
+    -i              ignore case distinctions
+    -v              invert match: select non-matching lines
+    -w              force PATTERN to match only whole words
+
+Search output:
+    -l              only print filenames containing matches
+    -o              show only the part of a line matching PATTERN
+                    (turns off text highlighting)
+    --output=expr   output the evaluation of expr for each line
+                    (turns off text highlighting)
+    -m=NUM          stop after NUM matches
+    -H              print the filename for each match
+    -h              suppress the prefixing filename on output
+    -c, --count     show number of lines matching per file
+
+    --group         group matches by file name.
+                    (default: on when used interactively)
+    --nogroup       One result per line, including filename, like grep
+                    (default: on when the output is redirected)
+
+    --[no]color     highlight the matching text (default: on unless
+                    output is redirected, or on Windows)
+
+File finding:
+    -f              only print the files found, without searching.
+                    The PATTERN must not be specified.
+
+File inclusion/exclusion:
+    -n              No descending into subdirectories
+    -a, --all       All files, regardless of extension (but still skips
+                    @IGNORE_DIRS@ dirs)
+@LIST@
+
+Miscellaneous:
+    --help          this help
+    --version       display version
+    --thpppt        Bill the Cat
+
+
+GOTCHAS:
+Note that FILES must still match valid selection rules.  For example,
+
+    ack something --perl foo.rb
+
+will search nothing, because foo.rb is a Ruby file.
+END_OF_HELP
 
     my @langlines;
     for my $lang ( sort keys %mappings ) {
@@ -191,8 +249,9 @@ sub show_help {
     }
     my $langlines = join( "\n", @langlines );
 
-    $help =~ s/LIST/$langlines/smx;
-    $help =~ s/IGNORE_DIRS/_ignore_dirs_str()/esmx;
+    my $help = $help_template;
+    $help =~ s/\@LIST\@/$langlines/smx;
+    $help =~ s/\@IGNORE_DIRS\@/_ignore_dirs_str()/esmx;
 
     print $help;
 
@@ -263,61 +322,3 @@ under the same terms as Perl itself.
 =cut
 
 1; # End of App::Ack
-
-__DATA__
-Usage: ack [OPTION]... PATTERN [FILES]
-Search for PATTERN in each source file in the tree from cwd on down.
-If [FILES] is specified, then only those files/directories are checked.
-ack may also search STDIN, but only if no FILES are specified, or if
-one of FILES is "-".
-
-Default switches may be specified in ACK_SWITCHES environment variable.
-
-Example: ack -i select
-
-Searching:
-    -i              ignore case distinctions
-    -v              invert match: select non-matching lines
-    -w              force PATTERN to match only whole words
-
-Search output:
-    -l              only print filenames containing matches
-    -o              show only the part of a line matching PATTERN
-                    (turns off text highlighting)
-    --output=expr   output the evaluation of expr for each line
-                    (turns off text highlighting)
-    -m=NUM          stop after NUM matches
-    -H              print the filename for each match
-    -h              suppress the prefixing filename on output
-    -c, --count     show number of lines matching per file
-
-    --group         group matches by file name.
-                    (default: on when used interactively)
-    --nogroup       One result per line, including filename, like grep
-                    (default: on when the output is redirected)
-
-    --[no]color     highlight the matching text (default: on unless
-                    output is redirected, or on Windows)
-
-File finding:
-    -f              only print the files found, without searching.
-                    The PATTERN must not be specified.
-
-File inclusion/exclusion:
-    -n              No descending into subdirectories
-    -a, --all       All files, regardless of extension (but still skips
-                    IGNORE_DIRS dirs)
-LIST
-
-Miscellaneous:
-    --help          this help
-    --version       display version
-    --thpppt        Bill the Cat
-
-
-GOTCHAS:
-Note that FILES must still match valid selection rules.  For example,
-
-    ack something --perl foo.rb
-
-will search nothing, because foo.rb is a Ruby file.
