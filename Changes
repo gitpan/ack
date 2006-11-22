@@ -1,5 +1,17 @@
 Revision history for ack
 
+1.32    Tue Nov 21 23:27:07 CST 2006
+
+        [ENHANCEMENTS]
+        Added the -Q flag for treating the search string as a literal.
+
+        [FIXES]
+        Will no longer ignore case distinctions in options.
+
+        The -h flag wouldn't work in conjunction with -c.  Now it does.
+        Thanks, Rick Scott.
+
+
 1.30    Fri Nov 10 19:25:23 CST 2006
 
         [FIXES]

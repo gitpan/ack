@@ -3,6 +3,8 @@
 use warnings;
 use strict;
 
+our $COPYRIGHT = 'Copyright 2005-2006 Andy Lester, all rights reserved.';
+
 our $is_windows;
 
 BEGIN {
@@ -40,6 +42,7 @@ my %options = (
     'm=i'       => \$opt{m},
     n           => \$opt{n},
     'o|output:s' => \$opt{o},
+    'Q|literal' => \$opt{Q},
     v           => \$opt{v},
     w           => \$opt{w},
 
@@ -60,7 +63,7 @@ for my $i ( @filetypes_supported ) {
 unshift @ARGV, split( ' ', $ENV{ACK_SWITCHES} ) if defined $ENV{ACK_SWITCHES};
 
 map { App::Ack::_thpppt($_) if /^--th[bp]+t$/ } @ARGV; ## no critic
-Getopt::Long::Configure( 'bundling' );
+Getopt::Long::Configure( 'bundling', 'no_ignore_case' );
 GetOptions( %options ) or die "ack --help for options.\n";
 
 if ( defined( my $val = $opt{o} ) ) {
@@ -91,8 +94,11 @@ if ( $opt{help} || (!@ARGV && !$opt{f}) ) {
 my $re;
 
 if ( !$opt{f} ) {
-    $re = shift or die 'No regex specified\n';
+    $re = shift or die "No regex specified\n";
 
+    if ( $opt{Q} ) {
+        $re = quotemeta( $re );
+    }
     if ( $opt{w} ) {
         $re = $opt{i} ? qr/\b$re\b/i : qr/\b$re\b/;
     }
@@ -236,7 +242,8 @@ sub search {
     close $fh;
 
     if ( $opt{count} ) {
-        print "${filename}:${nmatches}\n";
+        print "${filename}:" if $opt{show_filename};
+        print "${nmatches}\n";
     }
     else {
         if ( $opt{l} ) {
@@ -254,7 +261,7 @@ sub version() {
     print <<"END_OF_VERSION";
 ack $App::Ack::VERSION
 
-Copyright 2005-2006 Andy Lester, all rights reserved.
+$COPYRIGHT
 
 This program is free software; you can redistribute it and/or modify it
 under the same terms as Perl itself.
