@@ -10,37 +10,62 @@ App::Ack - A container for functions for the ack program
 
 =head1 VERSION
 
-Version 1.32
+Version 1.34
 
 =cut
 
-our $VERSION = '1.32';
+our $VERSION;
+BEGIN {
+    $VERSION = '1.34';
+}
 
-our %mappings = (
-    asm         => [qw( s S )],
-    binary      => q{Binary files, as defined by Perl's -B op (default: off)},
-    cc          => [qw( c h )],
-    cpp         => [qw( cpp m h )],
-    css         => [qw( css )],
-    elisp       => [qw( el )],
-    haskell     => [qw( hs lhs )],
-    html        => [qw( htm html shtml )],
-    lisp        => [qw( lisp )],
-    js          => [qw( js )],
-    mason       => [qw( mas )],
-    ocaml       => [qw( ml mli )],
-    parrot      => [qw( pir pasm pmc ops pod pg tg )],
-    perl        => [qw( pl pm pod tt ttml t )],
-    php         => [qw( php phpt htm html )],
-    python      => [qw( py )],
-    ruby        => [qw( rb rhtml rjs )],
-    scheme      => [qw( scm )],
-    shell       => [qw( sh bash csh ksh zsh )],
-    sql         => [qw( sql ctl )],
-    tt          => [qw( tt tt2 )],
-    vim         => [qw( vim )],
-    yaml        => [qw( yaml yml )],
-);
+our %types;
+our %mappings;
+our @suffixes;
+our @ignore_dirs;
+our %ignore_dirs;
+
+BEGIN {
+    @ignore_dirs = qw( blib CVS RCS SCCS .svn _darcs );
+    %ignore_dirs = map { ($_,1) } @ignore_dirs;
+    %mappings = (
+        asm         => [qw( s S )],
+        binary      => q{Binary files, as defined by Perl's -B op (default: off)},
+        cc          => [qw( c h )],
+        cpp         => [qw( cpp m h )],
+        css         => [qw( css )],
+        elisp       => [qw( el )],
+        haskell     => [qw( hs lhs )],
+        html        => [qw( htm html shtml )],
+        lisp        => [qw( lisp )],
+        java        => [qw( java )],
+        js          => [qw( js )],
+        mason       => [qw( mas )],
+        ocaml       => [qw( ml mli )],
+        parrot      => [qw( pir pasm pmc ops pod pg tg )],
+        perl        => [qw( pl pm pod tt ttml t )],
+        php         => [qw( php phpt htm html )],
+        python      => [qw( py )],
+        ruby        => [qw( rb rhtml rjs )],
+        scheme      => [qw( scm )],
+        shell       => [qw( sh bash csh ksh zsh )],
+        sql         => [qw( sql ctl )],
+        tt          => [qw( tt tt2 )],
+        vim         => [qw( vim )],
+        yaml        => [qw( yaml yml )],
+    );
+
+    my %suffixes;
+    while ( my ($type,$exts) = each %mappings ) {
+        if ( ref $exts ) {
+            for my $ext ( @{$exts} ) {
+                push( @{$types{$ext}}, $type );
+                ++$suffixes{"\\.$ext"};
+            }
+        }
+    }
+    @suffixes = keys %suffixes;
+}
 
 =head1 SYNOPSIS
 
@@ -67,8 +92,6 @@ sub is_filetype {
     return;
 }
 
-our @ignore_dirs = qw( blib CVS RCS SCCS .svn _darcs );
-our %ignore_dirs = map { ($_,1) } @ignore_dirs;
 sub _ignore_dirs_str { return _listify( @ignore_dirs ); }
 
 
@@ -84,37 +107,21 @@ sub skipdir_filter {
     return !exists $ignore_dirs{$_};
 }
 
-our %types;
-our @suffixes;
-
-sub _init_types {
-    my %suffixes;
-    while ( my ($type,$exts) = each %mappings ) {
-        if ( ref $exts ) {
-            for my $ext ( @$exts ) {
-                push( @{$types{$ext}}, $type );
-                ++$suffixes{"\\.$ext"};
-            }
-        }
-    }
-
-    @suffixes = keys %suffixes;
-
-    return;
-}
-
-
 =head2 filetypes( $filename )
 
 Returns a list of types that I<$filename> could be.  For example, a file
 F<foo.pod> could be "perl" or "parrot".
 
+The filetype will be C<undef> if we can't determine it.  This could
+be if the file doesn't exist, or it can't be read.
+
+It will be '-ignore' if it's something that ack should always ignore,
+even under -a.
+
 =cut
 
 sub filetypes {
     my $filename = shift;
-
-    _init_types() unless keys %types;
 
     return '-ignore' if $filename =~ /~$/;
 
@@ -128,16 +135,21 @@ sub filetypes {
     if ( $suffix ) {
         $suffix =~ s/^\.//; # Drop the period that File::Basename needs
         my $ref = $types{lc $suffix};
-        return @$ref if $ref;
+        return @{$ref} if $ref;
     }
 
-    return unless -r $filename;
+    return unless -e $filename;
+    if ( !-r $filename ) {
+        warn _my_program(), ": $filename: Permission denied\n";
+        return;
+    }
+
     return 'binary' if -B $filename;
 
     # If there's no extension, or we don't recognize it, check the shebang line
     my $fh;
     if ( !open( $fh, '<', $filename ) ) {
-        warn "ack: $filename: $!\n";
+        warn _my_program(), ": $filename: $!\n";
         return;
     }
     my $header = <$fh>;
@@ -153,6 +165,11 @@ sub filetypes {
 
     return;
 }
+
+sub _my_program {
+    return File::Basename::basename( $0 );
+}
+
 
 =head2 filetypes_supported()
 
@@ -243,7 +260,7 @@ END_OF_HELP
         my $ext_list = $mappings{$lang};
 
         if ( ref $ext_list ) {
-            my @exts = map { ".$_" } @$ext_list;
+            my @exts = map { ".$_" } @{$ext_list};
 
             $ext_list = _listify( @exts );
         }

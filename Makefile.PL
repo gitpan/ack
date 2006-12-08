@@ -13,43 +13,54 @@ WriteMakefile(
     MAN3PODS            => {}, # App::Ack's docs aren't useful
     EXE_FILES           => [ 'ack' ],
     PREREQ_PM => {
-        'Term::ANSIColor' => 0,
-        'Getopt::Long' => 0,
-        'Test::More' => 0,
-        'File::Next' => 0.28,
-        'File::Basename' => 0,
+        'Term::ANSIColor'   => 0,
+        'Getopt::Long'      => 0,
+        'Test::More'        => 0,
+        'File::Next'        => 0.32,   # For the better handling of package variables
+        'File::Basename'    => 0,
     },
     dist                => { COMPRESS => 'gzip -9f', SUFFIX => 'gz', },
-    clean               => { FILES => 'ack-* ack-standalone.txt' },
+    clean               => { FILES => 'ack-*' },
 );
 
+package MY;
 sub MY::postamble {
     my $file_next_filename = qx(perldoc -l File::Next);
     my $postamble = <<"MAKE_FRAG";
 .PHONY: tags critic
 
-tags:
+tags :
 	ctags -f tags --recurse --totals \
 		--exclude=blib --exclude=t/lib \
 		--exclude=.svn --exclude='*~' \
 		--languages=Perl --langmap=Perl:+.t \
 
-critic:
-	perlcritic -1 -q .
+critic :
+	perlcritic -1 -q -profile perlcriticrc .
 
 ACK             = ack
 APP_ACK_PM      = Ack.pm
 FILE_NEXT_PM    = $file_next_filename
-STANDALONE      = ack-standalone.txt
+STANDALONE      = ack-standalone
 
-standalone: \$(ACK) \$(APP_ACK_PM) \$(FILE_NEXT_PM)
+\$(STANDALONE) : \$(ACK) \$(APP_ACK_PM) \$(FILE_NEXT_PM)
 	grep -v 'use App::Ack' \$(ACK) | grep -v 'use File::Next' > \$(STANDALONE)
-	cat \$(APP_ACK_PM) \$(FILE_NEXT_PM) >> \$(STANDALONE)
+	cat \$(FILE_NEXT_PM) \$(APP_ACK_PM) >> \$(STANDALONE)
 	chmod +x \$(STANDALONE)
 
 MAKE_FRAG
 
     return $postamble;
 }
+
+
+sub MY::top_targets {
+    my $str = shift->SUPER::top_targets(@_);
+
+    $str =~ s/^pure_all.+/$& ack-standalone/m;
+
+    return $str;
+}
+
 
 1;
