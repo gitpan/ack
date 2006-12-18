@@ -4,6 +4,7 @@ use warnings;
 use strict;
 
 use Test::More tests => 16;
+use File::Next 0.34; # For the reslash() function
 
 my $ruby = [qw(
     t/etc/shebang.rb.xxx
@@ -17,7 +18,9 @@ my $perl = [qw(
     ./squash
     t/00-load.t
     t/ack-a.t
+    t/ack-c.t
     t/ack-type.t
+    t/ack-v.t
     t/etc/shebang.pl.xxx
     t/filetypes.t
     t/interesting.t
@@ -62,6 +65,8 @@ sub check_with {
 
     my @results = sort `$^X ./ack-standalone -f $options`;
     chomp @results;
+
+    $_ = File::Next::reslash( $_ ) for ( @expected, @results );
 
     local $Test::Builder::Level = $Test::Builder::Level + 1;
     return is_deeply( \@results, \@expected, "File lists match via $options" );
