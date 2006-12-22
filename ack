@@ -3,7 +3,7 @@
 use warnings;
 use strict;
 
-our $VERSION   = '1.51_01';
+our $VERSION   = '1.52';
 our $COPYRIGHT = 'Copyright 2005-2006 Andy Lester, all rights reserved.';
 # Check http://petdance.com/ack/ for updates
 
@@ -73,6 +73,7 @@ MAIN: {
         'man'       => sub {require Pod::Usage; Pod::Usage::pod2usage({-verbose => 2}); exit},
 
         'type=s'    => sub {
+            # Whatever --type=xxx they specify, set it manually in the hash
             my $dummy = shift;
             my $type = shift;
             my $wanted = ($type =~ s/^no//) ? 0 : 1; # must not be undef later
@@ -164,7 +165,6 @@ MAIN: {
             exit 0;
         }
         else {
-            $opt{defaulted_to_dot} = 1;
             @what = '.'; # Assume current directory
             $opt{show_filename} = 1;
         }
@@ -206,9 +206,7 @@ sub is_interesting {
 }
 
 sub dash_a {
-    my @types = App::Ack::filetypes( $File::Next::name );
-    return 0 if (@types == 1) && ($types[0] eq '-ignore');
-    return 1;
+    return !App::Ack::should_ignore( $File::Next::name );
 }
 
 sub search {
@@ -216,7 +214,6 @@ sub search {
     my $regex = shift;
     my %opt = @_;
 
-    my $nmatches = 0;
     my $is_binary;
 
     my $fh;
@@ -229,18 +226,16 @@ sub search {
             warn "ack: $filename: $!\n";
             return;
         }
-        $is_binary = -B $fh;
-        if ( $opt{defaulted_to_dot} ) {
-            $filename =~ s{^\Q./}{};
-        }
+        $is_binary = -B $filename;
     }
 
     # Negated counting is a pain, so I'm putting it in its own
     # optimizable subroutine.
     if ( $opt{v} ) {
-        return search_v( $fh, $is_binary, $filename, $regex, %opt );
+        return _search_v( $fh, $is_binary, $filename, $regex, %opt );
     }
 
+    my $nmatches = 0;
     local $_ = undef;
     while (<$fh>) {
         next unless /$regex/;
@@ -298,7 +293,7 @@ sub search {
 }   # search()
 
 
-sub search_v {
+sub _search_v {
     my $fh = shift;
     my $is_binary = shift;
     my $filename = shift;
@@ -338,7 +333,7 @@ sub search_v {
     }
 
     return;
-} # search_v()
+} # _search_v()
 
 
 =head1 NAME

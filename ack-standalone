@@ -3,7 +3,7 @@
 use warnings;
 use strict;
 
-our $VERSION   = '1.51_01';
+our $VERSION   = '1.52';
 our $COPYRIGHT = 'Copyright 2005-2006 Andy Lester, all rights reserved.';
 # Check http://petdance.com/ack/ for updates
 
@@ -71,6 +71,7 @@ MAIN: {
         'man'       => sub {require Pod::Usage; Pod::Usage::pod2usage({-verbose => 2}); exit},
 
         'type=s'    => sub {
+            # Whatever --type=xxx they specify, set it manually in the hash
             my $dummy = shift;
             my $type = shift;
             my $wanted = ($type =~ s/^no//) ? 0 : 1; # must not be undef later
@@ -162,7 +163,6 @@ MAIN: {
             exit 0;
         }
         else {
-            $opt{defaulted_to_dot} = 1;
             @what = '.'; # Assume current directory
             $opt{show_filename} = 1;
         }
@@ -204,9 +204,7 @@ sub is_interesting {
 }
 
 sub dash_a {
-    my @types = App::Ack::filetypes( $File::Next::name );
-    return 0 if (@types == 1) && ($types[0] eq '-ignore');
-    return 1;
+    return !App::Ack::should_ignore( $File::Next::name );
 }
 
 sub search {
@@ -214,7 +212,6 @@ sub search {
     my $regex = shift;
     my %opt = @_;
 
-    my $nmatches = 0;
     my $is_binary;
 
     my $fh;
@@ -227,18 +224,16 @@ sub search {
             warn "ack: $filename: $!\n";
             return;
         }
-        $is_binary = -B $fh;
-        if ( $opt{defaulted_to_dot} ) {
-            $filename =~ s{^\Q./}{};
-        }
+        $is_binary = -B $filename;
     }
 
     # Negated counting is a pain, so I'm putting it in its own
     # optimizable subroutine.
     if ( $opt{v} ) {
-        return search_v( $fh, $is_binary, $filename, $regex, %opt );
+        return _search_v( $fh, $is_binary, $filename, $regex, %opt );
     }
 
+    my $nmatches = 0;
     local $_ = undef;
     while (<$fh>) {
         next unless /$regex/;
@@ -296,7 +291,7 @@ sub search {
 }   # search()
 
 
-sub search_v {
+sub _search_v {
     my $fh = shift;
     my $is_binary = shift;
     my $filename = shift;
@@ -336,7 +331,7 @@ sub search_v {
     }
 
     return;
-} # search_v()
+} # _search_v()
 
 
 =head1 NAME
@@ -681,7 +676,7 @@ use strict;
 use warnings;
 
 
-our $VERSION = '0.34';
+our $VERSION = '0.36';
 
 
 use File::Spec ();
@@ -703,6 +698,7 @@ BEGIN {
     %skip_dirs = map {($_,1)} (File::Spec->curdir, File::Spec->updir);
 }
 
+
 sub files {
     my $passed_parms = ref $_[0] eq 'HASH' ? {%{+shift}} : {}; # copy parm hash
     my %passed_parms = %{$passed_parms};
@@ -721,23 +717,16 @@ sub files {
     for ( @_ ) {
         my $start = reslash( $_ );
         if (-d $start) {
-            push @queue, [$start,undef];
+            push @queue, ($start,undef,$start);
         }
         else {
-            push @queue, [undef,$start];
+            push @queue, (undef,$start,$start);
         }
     }
 
     return sub {
         while (@queue) {
-            my ($dir,$file) = @{shift @queue};
-
-            my $fullpath =
-                defined $dir
-                    ? defined $file
-                        ? File::Spec->catfile( $dir, $file )
-                        : $dir
-                    : $file;
+            my ($dir,$file,$fullpath) = splice( @queue, 0, 3 );
 
             if (-f $fullpath) {
                 if ( $parms->{file_filter} ) {
@@ -746,7 +735,7 @@ sub files {
                     local $File::Next::name = $fullpath;
                     next if not $parms->{file_filter}->();
                 }
-                return wantarray ? ($dir,$file) : $fullpath;
+                return wantarray ? ($dir,$file,$fullpath) : $fullpath;
             }
             elsif (-d $fullpath) {
                 unshift( @queue, _candidate_files( $parms, $fullpath ) );
@@ -755,17 +744,6 @@ sub files {
 
         return;
     }; # iterator
-}
-
-
-sub reslash {
-    my $path = shift;
-
-    my @parts = split( /\//, $path );
-
-    return $path if @parts < 2;
-
-    return File::Spec->catfile( @parts );
 }
 
 
@@ -784,18 +762,22 @@ sub _candidate_files {
         next if $skip_dirs{$file};
 
         # Only do directory checking if we have a descend_filter
-        if ( $parms->{descend_filter} ) {
-            local $File::Next::dir = File::Spec->catdir( $dir, $file );
-            if ( -d $File::Next::dir ) {
-                local $_ = $file;
-                next if not $parms->{descend_filter}->();
-            }
+        my $fullpath = File::Spec->catdir( $dir, $file );
+        if ( $parms->{descend_filter} && -d $fullpath ) {
+            local $File::Next::dir = $fullpath;
+            local $_ = $file;
+            next if not $parms->{descend_filter}->();
         }
-        push( @newfiles, [$dir, $file] );
+        push( @newfiles, $dir, $file, $fullpath );
     }
     if ( my $sub = $parms->{sort_files} ) {
         $sub = \&sort_standard unless ref($sub) eq 'CODE';
-        @newfiles = sort $sub @newfiles;
+
+        my @triplets;
+        while ( @newfiles ) {
+            push @triplets, [splice( @newfiles, 0, 3 )];
+        }
+        @newfiles = map { @{$_} } sort $sub @triplets;
     }
 
     return @newfiles;
@@ -805,24 +787,35 @@ sub sort_standard($$)   { return $_[0]->[1] cmp $_[1]->[1] };
 sub sort_reverse($$)    { return $_[1]->[1] cmp $_[0]->[1] };
 
 
+
+sub reslash {
+    my $path = shift;
+
+    my @parts = split( /\//, $path );
+
+    return $path if @parts < 2;
+
+    return File::Spec->catfile( @parts );
+}
+
+
 1; # End of File::Next
 package App::Ack;
 
 use warnings;
 use strict;
-use File::Basename ();
 
 
 our $VERSION;
 BEGIN {
-    $VERSION = '1.51_01';
+    $VERSION = '1.52';
 }
 
 our %types;
 our %mappings;
-our @suffixes;
 our @ignore_dirs;
 our %ignore_dirs;
+our $path_sep;
 our $is_cygwin;
 
 BEGIN {
@@ -858,32 +851,20 @@ BEGIN {
         xml         => [qw( xml dtd xslt )],
     );
 
-    my %suffixes;
+    use File::Spec ();
+    $path_sep = File::Spec->catfile( '', '' );
+    $path_sep = quotemeta( $path_sep );
+
     while ( my ($type,$exts) = each %mappings ) {
         if ( ref $exts ) {
             for my $ext ( @{$exts} ) {
                 push( @{$types{$ext}}, $type );
-                ++$suffixes{"\\.$ext"};
             }
         }
     }
-    @suffixes = keys %suffixes;
 
     $is_cygwin = ($^O eq 'cygwin');
 }
-
-
-sub is_filetype {
-    my $filename = shift;
-    my $wanted_type = shift;
-
-    for my $maybe_type ( filetypes( $filename ) ) {
-        return 1 if $maybe_type eq $wanted_type;
-    }
-
-    return;
-}
-
 
 
 sub skipdir_filter {
@@ -894,18 +875,11 @@ sub skipdir_filter {
 sub filetypes {
     my $filename = shift;
 
-    return '-ignore' if $filename =~ /~$/;
-
-    # Pass our $filename in lowercase so we match lowercase filenames
-    my ($filebase,$dirs,$suffix) = File::Basename::fileparse( lc $filename, @suffixes );
-
-    return '-ignore' if $filebase =~ /^#.+#$/;
-    return '-ignore' if $filebase =~ /^core\.\d+$/;
+    return '-ignore' if should_ignore( $filename );
 
     # If there's an extension, look it up
-    if ( $suffix ) {
-        $suffix =~ s/^\.//; # Drop the period that File::Basename needs
-        my $ref = $types{lc $suffix};
+    if ( $filename =~ m{\.([^$path_sep]+)$} ) {
+        my $ref = $types{lc $1};
         return @{$ref} if $ref;
     }
 
@@ -948,6 +922,17 @@ sub filetypes {
 }
 
 
+sub should_ignore {
+    my $filename = shift;
+
+    return 1 if $filename =~ /~$/;
+    return 1 if $filename =~ m{$path_sep?#.+#$};
+    return 1 if $filename =~ m{$path_sep?core\.\d+$};
+
+    return;
+}
+
+
 sub options_sanity_check {
     my %opts = @_;
     my $ok = 1;
@@ -983,6 +968,7 @@ sub _opty {
 }
 
 sub _my_program {
+    require File::Basename;
     return File::Basename::basename( $0 );
 }
 
@@ -1090,7 +1076,8 @@ Note that some extensions may appear in multiple types.  For example,
 
 END_OF_HELP
 
-    for my $type ( sort( filetypes_supported() ) ) {
+    my @types = filetypes_supported();
+    for my $type ( sort @types ) {
         next if $type =~ /^-/; # Stuff to not show
         my $ext_list = $mappings{$type};
 
