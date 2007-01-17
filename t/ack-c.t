@@ -16,10 +16,7 @@ DASH_L: {
     my @results = `$cmd`;
     chomp @results;
 
-    @results = sort @results;
-    @expected = sort @expected;
-
-    is_deeply( \@results, \@expected, 'Looking for religion' );
+    file_sets_match( \@results, \@expected, 'Looking for religion' );
 }
 
 DASH_C: {
@@ -36,10 +33,7 @@ DASH_C: {
     my @results = `$cmd`;
     chomp @results;
 
-    @results = sort @results;
-    @expected = sort @expected;
-
-    is_deeply( \@results, \@expected, 'Religion counts' );
+    file_sets_match( \@results, \@expected, 'Religion counts' );
 }
 
 DASH_LC: {
@@ -53,8 +47,14 @@ DASH_LC: {
     my @results = `$cmd`;
     chomp @results;
 
-    @results = sort @results;
-    @expected = sort @expected;
+    file_sets_match( \@results, \@expected, 'Religion counts -l -c' );
+}
 
-    is_deeply( \@results, \@expected, 'Religion counts -l -c' );
+sub file_sets_match {
+    my @expected = @{+shift};
+    my @actual = @{+shift};
+    my $msg = shift;
+
+    local $Test::Builder::Level = $Test::Builder::Level + 1; ## no critic
+    return is_deeply( [sort @expected], [sort @actual], $msg );
 }
