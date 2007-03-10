@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name:                ack
-version:             1.58
+version:             1.60
 abstract:            A grep-like program specifically for large source trees
 license:             unknown
 generated_by:        ExtUtils::MakeMaker version 6.30_01
@@ -8,7 +8,7 @@ author:              Andy Lester <andy@petdance.com>
 distribution_type:   module
 requires:     
     File::Basename:                0
-    File::Next:                    0.38
+    File::Next:                    0.4
     Getopt::Long:                  0
     Term::ANSIColor:               0
     Test::More:                    0
