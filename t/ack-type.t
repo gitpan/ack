@@ -5,6 +5,7 @@ use strict;
 
 use Test::More tests => 16;
 use File::Next 0.34; # For the reslash() function
+delete $ENV{ACK_OPTIONS};
 
 my $ruby = [qw(
     t/etc/shebang.rb.xxx
@@ -20,6 +21,7 @@ my $perl = [qw(
     t/ack-a.t
     t/ack-binary.t
     t/ack-c.t
+    t/ack-text.t
     t/ack-type.t
     t/ack-v.t
     t/etc/shebang.pl.xxx

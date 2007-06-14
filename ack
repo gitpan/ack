@@ -3,7 +3,7 @@
 use warnings;
 use strict;
 
-our $VERSION   = '1.63_01';
+our $VERSION   = '1.63_02';
 our $COPYRIGHT = 'Copyright 2005-2007 Andy Lester, all rights reserved.';
 # Check http://petdance.com/ack/ for updates
 
@@ -66,6 +66,7 @@ MAIN: {
         'o|output:s'            => \$opt{o},
         'Q|literal'             => \$opt{Q},
         'sort-files'            => \$opt{sort_files},
+        'text'                  => \$opt{text},
         'v|invert-match'        => \$opt{v},
         'w|word-regexp'         => \$opt{w},
 
@@ -135,7 +136,7 @@ MAIN: {
     # If anyone says --no-whatever, we assume all other types must be on.
     if ( !$filetypes_supported_set ) {
         for my $i ( keys %type_wanted ) {
-            $type_wanted{$i} = 1 unless ( defined( $type_wanted{$i} ) || $i eq 'binary' );
+            $type_wanted{$i} = 1 unless ( defined( $type_wanted{$i} ) || $i eq 'binary' || $i eq 'text' || $i eq 'ignored' );
         }
     }
 
@@ -669,6 +670,7 @@ L<http://ack.googlecode.com/svn/>
 How appropriate to have I<ack>nowledgements!
 
 Thanks to everyone who has contributed to ack in any way, including
+Michael Hendricks,
 Ævar Arnfjörð Bjarmason,
 Piers Cawley,
 Stephen Steneker,
