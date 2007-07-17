@@ -3,7 +3,7 @@
 use warnings;
 use strict;
 
-our $VERSION   = '1.63_03';
+our $VERSION   = '1.64';
 our $COPYRIGHT = 'Copyright 2005-2007 Andy Lester, all rights reserved.';
 # Check http://petdance.com/ack/ for updates
 
@@ -45,15 +45,13 @@ MAIN: {
     );
 
     my %options = (
-        'A|after-context=i'     => \$opt{A},
-        'B|before-context=i'    => \$opt{B},
-        'C|context=i'           => sub { shift; $opt{A} = $opt{B} = shift; },
         a           => \$opt{all},
         'all!'      => \$opt{all},
         c           => \$opt{count},
         'color!'    => \$opt{color},
         count       => \$opt{count},
         f           => \$opt{f},
+        'g=s'       => \$opt{g},
         'follow!'   => \$opt{follow},
         'group!'    => \$opt{group},
         h           => \$opt{h},
@@ -66,7 +64,6 @@ MAIN: {
         'o|output:s'            => \$opt{o},
         'Q|literal'             => \$opt{Q},
         'sort-files'            => \$opt{sort_files},
-        'text'                  => \$opt{text},
         'v|invert-match'        => \$opt{v},
         'w|word-regexp'         => \$opt{w},
 
@@ -140,20 +137,24 @@ MAIN: {
         }
     }
 
-    if ( !@ARGV && !$opt{f} ) {
+    my $file_matching = $opt{f} || $opt{g};
+    if ( !@ARGV && !$file_matching ) {
         App::Ack::show_help();
         exit 1;
     }
 
     my $regex;
 
-    if ( !$opt{f} ) {
+    if ( !$file_matching ) {
         # REVIEW: This shouldn't be able to happen because of the help
         # check above.
         $regex = shift @ARGV or App::Ack::die( 'No regex specified' );
 
         $regex = quotemeta( $regex ) if $opt{Q};
-        $regex = "\\b$regex\\b"      if $opt{w};
+        if ( $opt{w} ) {
+            $regex = "\\b$regex" if $regex =~ /^\w/;
+            $regex = "$regex\\b" if $regex =~ /\w$/;
+        }
 
         $regex = $opt{i} ? qr/$regex/i : qr/$regex/;
     }
@@ -198,11 +199,18 @@ MAIN: {
         }, @what );
 
 
-    while ( defined ( my $file = $iter->() ) ) {
-        if ( $opt{f} ) {
+    if ( $opt{f} ) {
+        while ( defined ( my $file = $iter->() ) ) {
             print "$file\n";
         }
-        else {
+    }
+    elsif ( $opt{g} ) {
+        while ( defined ( my $file = $iter->() ) ) {
+            print "$file\n" if $file =~ m/$opt{g}/o;
+        }
+    }
+    else {
+        while ( defined ( my $file = $iter->() ) ) {
             search( $file, $regex, %opt );
         }
     }
@@ -212,10 +220,17 @@ MAIN: {
 sub is_interesting {
     return if /^\./;
 
+    my $include;
+    my $exclude;
+
     for my $type ( App::Ack::filetypes( $File::Next::name ) ) {
-        return 1 if $type_wanted{$type};
+        if ( defined $type_wanted{$type} ) {
+            $include = 1 if $type_wanted{$type};
+            $exclude = 1 if not $type_wanted{$type};
+        }
     }
-    return;
+
+    return ( $include && not $exclude );
 }
 
 sub dash_a {
@@ -251,7 +266,7 @@ sub search {
     my $nmatches = 0;
     local $_ = undef;
     while (<$fh>) {
-        next unless /$regex/;
+        next unless /$regex/o;
         ++$nmatches;
         next if $opt{count}; # Counting means no lines
 
@@ -321,7 +336,7 @@ sub _search_v {
     my $show_lines = !($opt{l} || $opt{count});
     local $_ = undef;
     while (<$fh>) {
-        if ( /$regex/ ) {
+        if ( /$regex/o ) {
             return if $opt{l}; # For list mode, any match means we can bail
             next;
         }
@@ -430,22 +445,7 @@ back in on I<ack> in the near future, because I'm adding it.
 =item B<-a>, B<--all>
 
 Operate on all files, regardless of type (but still skip directories
-like F<blib>, F<CVS>, etc.
-
-=item B<-A I<NUM>>, B<--after-context=I<NUM>>
-
-Print I<NUM> lines of trailing context after matching lines.  Places
-a line containing -- between contiguous groups of matches.
-
-=item B<-B I<NUM>>, B<--before-context=I<NUM>>
-
-Print I<NUM> lines of leading context before matching lines.  Places
-a line containing -- between contiguous groups of matches.
-
-=item B<-C I<NUM>>, B<--context=I<NUM>>
-
-Print I<NUM> lines of context before and after matching lines.
-Places a line containing -- between contiguous groups of matches.
+like F<blib>, F<CVS>, etc.)
 
 =item B<-c>, B<--count>
 
@@ -472,6 +472,12 @@ Follow or don't follow symlinks, other than whatever starting files
 or directories were specified on the command line.
 
 This is off by default.
+
+=item B<-g=I<REGEX>>
+
+Same as B<-f>, but only print files that match I<REGEX>.  The entire
+path and filename are matched against I<REGEX>, and I<REGEX> is a
+Perl regular expression, not a shell glob.
 
 =item B<--group>, B<--nogroup>
 
@@ -545,6 +551,10 @@ Specify the types of files to include or exclude from a search.
 TYPE is a filetype, like I<perl> or I<xml>.  B<--type=perl> can
 also be specified as B<--perl>, and B<--type=noperl> can be done
 as B<--noperl>.
+
+If a file is of both type "foo" and "bar", specifying --foo and
+--nobar will exclude the file, because an exclusion takes precedence
+over an inclusion.
 
 Type specifications can be repeated and are ORed together.
 

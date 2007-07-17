@@ -9,13 +9,13 @@ App::Ack - A container for functions for the ack program
 
 =head1 VERSION
 
-Version 1.63_02
+Version 1.64
 
 =cut
 
 our $VERSION;
 BEGIN {
-    $VERSION = '1.63_03';
+    $VERSION = '1.64';
 }
 
 our %types;
@@ -37,6 +37,7 @@ BEGIN {
         css         => [qw( css )],
         elisp       => [qw( el )],
         haskell     => [qw( hs lhs )],
+        hh          => [qw( h )],
         html        => [qw( htm html shtml )],
         skipped     => q{Files, but not directories, normally skipped by ack (default: off)},
         lisp        => [qw( lisp )],
@@ -81,7 +82,7 @@ BEGIN {
 
 =head1 SYNOPSIS
 
-If you want to know about the F<ack> program
+If you want to know about the F<ack> program, see the F<ack> file itself.
 
 No user-serviceable parts inside.  F<ack> is all that should use this.
 
@@ -312,7 +313,7 @@ Search output:
                         (turns off text highlighting)
   --output=expr         Output the evaluation of expr for each line
                         (turns off text highlighting)
-  -m, --max-count=NUM   Stop after NUM matches
+  -m, --max-count=NUM   Stop searching in a file after NUM matches
   -H, --with-filename   Print the filename for each match
   -h, --no-filename     Suppress the prefixing filename on output
   -c, --count           Show number of lines matching per file
@@ -325,16 +326,10 @@ Search output:
   --[no]color           Highlight the matching text (default: on unless
                         output is redirected, or on Windows)
 
-Context control:
-  -B, --before-context=NUM
-  -A, --after-context=NUM
-  -C, --context=NUM
-                        Print NUM lines of context before and/or after
-                        matching lines
-
 File finding:
   -f                    Only print the files found, without searching.
                         The PATTERN must not be specified.
+  -g=REGEX              Same as -f, but only print files matching REGEX.
   --sort-files          Sort the found files lexically.
 
 File inclusion/exclusion:
