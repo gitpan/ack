@@ -19,6 +19,7 @@ ACK_F_TEXT: {
         t/ack-binary.t
         t/ack-c.t
         t/ack-g.t
+        t/ack-passthru.t
         t/ack-text.t
         t/ack-type.t
         t/ack-w.t
@@ -41,6 +42,8 @@ ACK_F_TEXT: {
         t/pod.t
         t/standalone.t
         t/swamp/0
+        t/swamp/pipe-stress-freaks.F
+        t/swamp/crystallography-weenies.f
         t/swamp/c-header.h
         t/swamp/c-source.c
         t/swamp/html.htm
@@ -56,6 +59,7 @@ ACK_F_TEXT: {
         t/swamp/perl.pl
         t/swamp/perl.pm
         t/swamp/perl.pod
+        t/text/4th-of-july.txt
         t/text/boy-named-sue.txt
         t/text/freedom-of-choice.txt
         t/text/science-of-myth.txt

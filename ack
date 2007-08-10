@@ -3,7 +3,7 @@
 use warnings;
 use strict;
 
-our $VERSION   = '1.64';
+our $VERSION   = '1.65_01';
 our $COPYRIGHT = 'Copyright 2005-2007 Andy Lester, all rights reserved.';
 # Check http://petdance.com/ack/ for updates
 
@@ -62,6 +62,7 @@ MAIN: {
         'm|max-count=i'         => \$opt{m},
         n                       => \$opt{n},
         'o|output:s'            => \$opt{o},
+        'passthru'              => \$opt{passthru},
         'Q|literal'             => \$opt{Q},
         'sort-files'            => \$opt{sort_files},
         'v|invert-match'        => \$opt{v},
@@ -100,10 +101,6 @@ MAIN: {
     Getopt::Long::Configure( 'bundling', 'no_ignore_case' );
     GetOptions( %options ) && App::Ack::options_sanity_check( %opt ) or
         App::Ack::die( 'See ack --help or ack --man for options.' );
-
-    if ( $opt{A} || $opt{B} ) {
-        App::Ack::die( q{Sorry, but the -A, -B and -C options haven't actually been implemented yet.} );
-    }
 
     # Handle new -L the old way: as -l and -v
     if ( $opt{L} ) {
@@ -205,8 +202,9 @@ MAIN: {
         }
     }
     elsif ( $opt{g} ) {
+        my $regex = $opt{i} ? qr/$opt{g}/i : qr/$opt{g}/;
         while ( defined ( my $file = $iter->() ) ) {
-            print "$file\n" if $file =~ m/$opt{g}/o;
+            print "$file\n" if $file =~ m/$regex/o;
         }
     }
     else {
@@ -266,7 +264,7 @@ sub search {
     my $nmatches = 0;
     local $_ = undef;
     while (<$fh>) {
-        next unless /$regex/o;
+        next unless $opt{passthru} || /$regex/o;
         ++$nmatches;
         next if $opt{count}; # Counting means no lines
 
@@ -366,7 +364,7 @@ sub _search_v {
     return;
 } # _search_v()
 
-=encoding utf-8
+=encoding utf8
 
 =head1 NAME
 
@@ -530,6 +528,15 @@ highlighting)
 Output the evaluation of I<expr> for each line (turns off text
 highlighting)
 
+=item B<--passthru>
+
+Prints all lines, whether or not they match the expression.  Highlighting
+will still work, though, so it can be used to highlight matches while
+still seeing the entire file, as in:
+
+    # Watch a log file, and highlight a certain IP address
+    $ tail -f ~/access.log | ack --passthru 123.45.67.89
+
 =item B<-Q>, B<--literal>
 
 Quote all metacharacters.  PATTERN is treated as a literal.
@@ -680,6 +687,7 @@ L<http://ack.googlecode.com/svn/>
 How appropriate to have I<ack>nowledgements!
 
 Thanks to everyone who has contributed to ack in any way, including
+Tod Hagan,
 Michael Hendricks,
 Ævar Arnfjörð Bjarmason,
 Piers Cawley,

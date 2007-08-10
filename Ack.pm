@@ -9,33 +9,42 @@ App::Ack - A container for functions for the ack program
 
 =head1 VERSION
 
-Version 1.64
+Version 1.65_01
 
 =cut
 
 our $VERSION;
 BEGIN {
-    $VERSION = '1.64';
+    $VERSION = '1.65_01';
 }
 
 our %types;
 our %mappings;
-our @ignore_dirs;
 our %ignore_dirs;
 our $path_sep;
 our $is_cygwin;
 
 BEGIN {
-    @ignore_dirs = qw( blib CVS RCS SCCS .svn _darcs .git );
-    %ignore_dirs = map { ($_,1) } @ignore_dirs;
+    %ignore_dirs = (
+        '.git'  => 'Git',
+        '.pc'   => 'quilt',
+        '.svn'  => 'Subversion',
+        CVS     => 'CVS',
+        RCS     => 'RCS',
+        SCCS    => 'SCCS',
+        _darcs  => 'darcs',
+        blib    => 'Perl module building',
+    );
+
     %mappings = (
-        asm         => [qw( s S )],
+        asm         => [qw( s )],
         binary      => q{Binary files, as defined by Perl's -B op (default: off)},
         cc          => [qw( c h xs )],
-        cpp         => [qw( cpp m h C H )],
+        cpp         => [qw( cpp m h )],
         csharp      => [qw( cs )],
         css         => [qw( css )],
         elisp       => [qw( el )],
+        fortran     => [qw( f f77 f90 f95 f03 for ftn fpp )],
         haskell     => [qw( hs lhs )],
         hh          => [qw( h )],
         html        => [qw( htm html shtml )],
@@ -202,7 +211,9 @@ sub options_sanity_check {
     $ok = 0 if _option_conflict( \%opts, 'l', [qw( m )] );
 
     # File-searching is definitely irrelevant on these
-    $ok = 0 if _option_conflict( \%opts, 'f', [qw( A B C o m group )] );
+    for my $switch ( qw( f g ) ) {
+        $ok = 0 if _option_conflict( \%opts, $switch, [qw( A B C o m group l )] );
+    }
 
     return $ok;
 }
@@ -273,6 +284,13 @@ sub _thpppt {
     exit 0;
 }
 
+sub _key {
+    my $str = lc shift;
+    $str =~ s/[^a-z]//g;
+
+    return $str;
+}
+
 =head2 show_help()
 
 Dumps the help page to the user.
@@ -284,7 +302,7 @@ sub show_help {
 
     return show_help_types() if $help_arg =~ /^types?/;
 
-    my $ignore_dirs = _listify( @ignore_dirs );
+    my $ignore_dirs = _listify( sort { _key($a) cmp _key($b) } keys %ignore_dirs );
 
     print <<"END_OF_HELP";
 Usage: ack [OPTION]... PATTERN [FILES]
@@ -311,6 +329,7 @@ Search output:
                         Only print filenames with no match
   -o                    Show only the part of a line matching PATTERN
                         (turns off text highlighting)
+  --passthru            Print all lines, whether matching or not
   --output=expr         Output the evaluation of expr for each line
                         (turns off text highlighting)
   -m, --max-count=NUM   Stop searching in a file after NUM matches
