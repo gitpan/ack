@@ -15,10 +15,12 @@ use Util;
 ACK_F_TEXT: {
     my @expected = qw(
         t/00-load.t
+        t/ack-1.t
         t/ack-a.t
         t/ack-binary.t
         t/ack-c.t
         t/ack-g.t
+        t/ack-o.t
         t/ack-passthru.t
         t/ack-text.t
         t/ack-type.t
@@ -38,6 +40,7 @@ ACK_F_TEXT: {
         t/filetypes.t
         t/interesting.t
         t/longopts.t
+        t/module.t
         t/pod-coverage.t
         t/pod.t
         t/standalone.t
@@ -70,9 +73,7 @@ ACK_F_TEXT: {
 
     my @files = qw( t );
     my @args = qw( -f --text );
-    my $cmd = "$^X ./ack-standalone @args @files";
-    my @results = `$cmd`;
-    chomp @results;
+    my @results = run_ack( @args, @files );
 
     sets_match( \@results, \@expected, 'Looking for text files' );
 }

@@ -35,10 +35,12 @@ my $perl = [qw(
     Makefile.PL
     squash
     t/00-load.t
+    t/ack-1.t
     t/ack-a.t
     t/ack-binary.t
     t/ack-c.t
     t/ack-g.t
+    t/ack-o.t
     t/ack-passthru.t
     t/ack-text.t
     t/ack-type.t
@@ -48,6 +50,7 @@ my $perl = [qw(
     t/filetypes.t
     t/interesting.t
     t/longopts.t
+    t/module.t
     t/pod-coverage.t
     t/pod.t
     t/standalone.t
