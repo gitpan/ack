@@ -58,7 +58,7 @@ critic:
 
 prof: all
 	$(PERL_T) -d:DProf ack-standalone --color --group -w foo ~/parrot >> /dev/null 2>&1
-	dprofpp
+	dprofpp -R
 
 $(STANDALONE) : $(ACK) $(APP_ACK_PM) squash Makefile
 	$(PERL_T) squash ack File::Next $(APP_ACK_PM) > $(STANDALONE)

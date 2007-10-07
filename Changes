@@ -1,6 +1,22 @@
 Changelog for ack
 
-NEXT
+1.67_02     Sun Oct  7 14:50:38 CDT 2007
+    [FIXES]
+    ack no longer uses -T, but the tests still use it.
+
+    Check for ~/_ackrc, too.
+
+    --passthru would highlight every single zero-width space between
+    characters.  Oops.  The effect would be to have your output be
+    15x larger than necessary.
+
+    [ENHANCEMENTS]
+    Added still more sanity checks on option conflicts.
+
+    The output for -v negative searching now matches regular searching.
+
+
+1.67_01     Wed Sep 26 13:36:18 CDT 2007
     [FIXES]
     Color coding no longer "smears" the following line if the colored
     part of the match wraps to the next line.

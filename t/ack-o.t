@@ -5,7 +5,7 @@ use strict;
 
 use Test::More tests => 3;
 use File::Next ();
-delete $ENV{ACK_OPTIONS};
+delete @ENV{qw( ACK_OPTIONS ACKRC )};
 
 use lib 't';
 use Util;
@@ -64,7 +64,9 @@ EOF
 
 WITH_OUTPUT: {
     my @files = qw( t/text/ );
-    my @args = qw( --output='x$1x' -a "question(\\S+)" );
+    my @args = ($^O eq 'MSWin32')
+        ? qw( --output="x$1x" -a "question(\\S+)" )
+        : qw( --output='x$1x' -a "question(\\S+)" );
     my @expected = qw(
         xedx
         xs.x

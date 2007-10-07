@@ -9,25 +9,26 @@ App::Ack - A container for functions for the ack program
 
 =head1 VERSION
 
-Version 1.67_01
+Version 1.67_02
 
 =cut
 
 our $VERSION;
 our $COPYRIGHT;
 BEGIN {
-    $VERSION = '1.67_01';
+    $VERSION = '1.67_02';
     $COPYRIGHT = 'Copyright 2005-2007 Andy Lester, all rights reserved.';
 }
 
 our %types;
+our %type_wanted;
 our %mappings;
 our %ignore_dirs;
+
 our $path_sep_regex;
 our $is_cygwin;
 our $is_windows;
 our $to_screen;
-our %type_wanted;
 
 use File::Spec ();
 use File::Glob ':glob';
@@ -108,10 +109,21 @@ No user-serviceable parts inside.  F<ack> is all that should use this.
 
 =head2 read_ackrc
 
+Reads the contents of the .ackrc file and returns the arguments.
+
 =cut
 
 sub read_ackrc {
-    my @files = ( $ENV{ACKRC}, bsd_glob( '~/.ackrc', GLOB_TILDE ) );
+    my @files = ( $ENV{ACKRC} );
+    my @dirs =
+        $is_windows
+            ? ( $ENV{HOME}, $ENV{USERPROFILE} )
+            : ( '~', $ENV{HOME} );
+    for my $dir ( grep { defined } @dirs ) {
+        for my $file ( '.ackrc', '_ackrc' ) {
+            push( @files, bsd_glob( "$dir/$file", GLOB_TILDE ) );
+        }
+    }
     for my $filename ( @files ) {
         if ( defined $filename && -e $filename ) {
             open( my $fh, '<', $filename ) or die "$filename: $!\n";
@@ -119,8 +131,7 @@ sub read_ackrc {
             chomp @lines;
             close $fh or die "$filename: $!\n";
 
-            unshift( @ARGV, @lines );
-            last;
+            return @lines;
         }
     }
 
@@ -128,6 +139,8 @@ sub read_ackrc {
 }
 
 =head2 get_command_line_options()
+
+Gets command-line arguments and does the Ack-specific tweaking.
 
 =cut
 
@@ -268,10 +281,7 @@ sub filetypes {
         return;
     }
     my $header = <$fh>;
-    if ( not close $fh ) {
-        App::Ack::warn( "$filename: $!" );
-        return;
-    }
+    App::Ack::close_file( $fh, $filename ) or return;
 
     if ( $header =~ /^#!/ ) {
         return ($1,TEXT)       if $header =~ /\b(ruby|p(?:erl|hp|ython))\b/;
@@ -312,7 +322,10 @@ sub options_sanity_check {
     my $ok = 1;
 
     # List mode doesn't make sense with any of these
-    $ok = 0 if _option_conflict( \%opts, 'l', [qw( f g )] );
+    $ok = 0 if _option_conflict( \%opts, 'l', [qw( f g group o output passthru )] );
+
+    # Passthru negates the need for a lot of switches
+    $ok = 0 if _option_conflict( \%opts, 'passthru', [qw( f g group l )] );
 
     # File-searching is definitely irrelevant on these
     for my $switch ( qw( f g l ) ) {
@@ -321,7 +334,7 @@ sub options_sanity_check {
 
     # No sense to have negation with -o or --output
     for my $switch ( qw( v ) ) {
-        $ok = 0 if _option_conflict( \%opts, $switch, [qw( o option passthru )] );
+        $ok = 0 if _option_conflict( \%opts, $switch, [qw( o output passthru )] );
     }
 
     return $ok;
@@ -633,21 +646,21 @@ sub is_interesting {
 }
 
 
-=head2 search
+=head2 open_file( $filename )
 
-Main search method
+Opens the file specified by I<$filename> and returns a filehandle and
+a flag that says whether it could be binary.
+
+If there's a failure, it throws a warning and returns an empty list.
 
 =cut
 
-sub search {
+sub open_file {
     my $filename = shift;
-    my $regex = shift;
-    my $opt = shift;
 
-    $regex = qr// if $opt->{passthru}; # Always match in passthru mode
-
-    my $could_be_binary;
     my $fh;
+    my $could_be_binary;
+
     if ( $filename eq '-' ) {
         $fh = *STDIN;
         $could_be_binary = 0;
@@ -655,29 +668,53 @@ sub search {
     else {
         if ( !open( $fh, '<', $filename ) ) {
             App::Ack::warn( "$filename: $!" );
-            return 0;
+            return;
         }
         $could_be_binary = 1;
     }
 
-    # Negated counting is a pain, so I'm putting it in its own
-    # optimizable subroutine.
-    if ( $opt->{v} ) {
-        return _search_v( $fh, $could_be_binary, $filename, $regex, $opt );
+    return ($fh,$could_be_binary);
+}
+
+=head2 close_file( $fh, $filename )
+
+Close L<$fh> opened from L<$filename>.
+
+=cut
+
+sub close_file {
+    if ( close $_[0] ) {
+        return 1;
     }
+    App::Ack::warn( "$_[1]: $!" );
+    return 0;
+}
+
+
+=head2 search
+
+Main search method
+
+=cut
+
+sub search {
+    my $fh = shift;
+    my $could_be_binary = shift;
+    my $filename = shift;
+    my $regex = shift;
+    my $opt = shift;
 
     my $display_filename;
     my $nmatches = 0;
     my $output_func = $opt->{output};
-    local $_ = undef;
-    while (<$fh>) {
-        next unless /$regex/o;
-        ++$nmatches;
-        next if $opt->{count}; # Counting means no lines get displayed
 
-        # No point in searching more if we only want a list,
-        # and don't want a count.
-        last if $opt->{l};
+    my $v = $opt->{v};
+    while (<$fh>) {
+        if ( $v ? /$regex/o : !/$regex/o ) {
+            print if $opt->{passthru};
+            next;
+        }
+        ++$nmatches;
 
         if ( $could_be_binary ) {
             if ( -B $filename ) {
@@ -686,7 +723,6 @@ sub search {
             }
             $could_be_binary = 0;
         }
-
         if ( $opt->{show_filename} ) {
             if ( not defined $display_filename ) {
                 $display_filename =
@@ -720,69 +756,61 @@ sub search {
 
         last if $opt->{m} && ( $nmatches >= $opt->{m} );
     } # while
-    close $fh or App::Ack::warn( "$filename: $!" );
 
-    if ( $opt->{count} ) {
-        if ( $nmatches || !$opt->{l} ) {
-            print "${filename}:" if $opt->{show_filename};
-            print "${nmatches}\n";
-        }
-    }
-    elsif ( $opt->{l} ) {
-        print "$filename\n" if $nmatches;
-    }
-    else {
-        print "\n" if $nmatches && $opt->{show_filename} && $opt->{group};
+    if ( $nmatches && $opt->{show_filename} && $opt->{group} ) {
+        print "\n";
     }
 
     return $nmatches;
 }   # search()
 
 
-sub _search_v {
+=head2 search_and_list
+
+Optimized version of searching for -l and --count, which do not
+show lines.
+
+=cut
+
+sub search_and_list {
     my $fh = shift;
-    my $could_be_binary = shift;
     my $filename = shift;
     my $regex = shift;
     my $opt = shift;
 
-    my $nmatches = 0; # Although in here, it's really $n_non_matches. :-)
+    my $nmatches = 0;
+    my $v = $opt->{v};
+    my $count = $opt->{count};
 
-    my $show_lines = !($opt->{l} || $opt->{count});
-    local $_ = undef;
     while (<$fh>) {
-        if ( /$regex/o ) {
-            return 0 if $opt->{l}; # For list mode, any match means we can bail
-            next;
-        }
-        else {
-            ++$nmatches;
-            if ( $show_lines ) {
-                if ( $could_be_binary ) {
-                    if ( -B $filename ) {
-                        print "Binary file $filename matches\n";
-                        last;
-                    }
-                    $could_be_binary = 0;
-                }
-                print "${filename}:" if $opt->{show_filename};
-                print $_;
-                last if $opt->{m} && ( $nmatches >= $opt->{m} );
+        if ( $v ) {
+            if ( /$regex/o ) {
+                return 0 unless $count;
+            }
+            else {
+                ++$nmatches;
             }
         }
-    } # while
-    close $fh or App::Ack::warn( "$filename: $!" );
-
-    if ( $opt->{count} ) {
-        print "${filename}:" if $opt->{show_filename};
-        print "${nmatches}\n";
-    }
-    else {
-        print "$filename\n" if $opt->{l};
+        else {
+            if ( /$regex/o ) {
+                ++$nmatches;
+                last unless $count;
+            }
+        }
     }
 
-    return $nmatches;
-} # _search_v()
+    if ( $nmatches ) {
+        print $filename;
+        print ':', $nmatches if $count;
+        print "\n";
+    }
+    elsif ( $count && !$opt->{l} ) {
+        print "$filename:0\n";;
+    }
+
+    return $nmatches ? 1 : 0;
+}   # search_and_list()
+
 
 =head2 apply_defaults
 
@@ -819,38 +847,22 @@ sub filetypes_supported_set {
     return grep { defined $type_wanted{$_} && ($type_wanted{$_} == 1) } filetypes_supported();
 }
 
-=head2 print_files( $iter, $one )
 
-Prints all the files returned by the iterator.  If I<$one> is set,
-stop after the first.
-
-=cut
-
-sub print_files {
-    my ($iter, $one) = @_;
-    while ( defined ( my $file = $iter->() ) ) {
-        print "$file\n";
-        last if $one;
-    }
-
-    return;
-}
-
-=head2 print_selected_files( $iter, $regex, $one )
+=head2 print_files( $iter, $one [, $regex] )
 
 Prints all the files returned by the iterator matching I<$regex>.
 If I<$one> is set, stop after the first.
 
 =cut
 
-sub print_selected_files {
+sub print_files {
     my $iter = shift;
-    my $regex = shift;
     my $one = shift;
+    my $regex = shift;
 
     while ( defined ( my $file = $iter->() ) ) {
-        if ( $file =~ m/$regex/o ) {
-            print "$file\n";
+        if ( (not defined $regex) || ($file =~ m/$regex/o) ) {
+            print $file, "\n";
             last if $one;
         }
     }

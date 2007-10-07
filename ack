@@ -1,9 +1,9 @@
-#!/usr/local/bin/perl -T
+#!/usr/local/bin/perl
 
 use warnings;
 use strict;
 
-our $VERSION   = '1.67_01';
+our $VERSION   = '1.67_02';
 # Check http://petdance.com/ack/ for updates
 
 # These are all our globals.
@@ -12,7 +12,7 @@ use File::Next 0.40;
 use App::Ack ();
 
 MAIN: {
-    App::Ack::read_ackrc();
+    unshift( @ARGV, App::Ack::read_ackrc() );
     App::Ack::load_colors();
 
     if ( $App::Ack::VERSION ne $main::VERSION ) {
@@ -45,7 +45,7 @@ sub main {
             my $s = $nargs == 1 ? '' : 's';
             App::Ack::warn( "Ignoring $nargs argument$s on the command-line while acting as a filter." );
         }
-        App::Ack::search( '-', $regex, \%opt );
+        App::Ack::search( \*STDIN, 0, '-', $regex, \%opt );
         exit 0;
     }
 
@@ -89,7 +89,16 @@ sub main {
     }
     elsif ( $opt{g} ) {
         my $regex = $opt{i} ? qr/$opt{g}/i : qr/$opt{g}/;
-        App::Ack::print_selected_files($iter, $regex, $opt{1});
+        App::Ack::print_files($iter, $opt{1}, $regex);
+    }
+    elsif ( $opt{l} || $opt{count} ) {
+        my $nmatches = 0;
+        while ( defined ( my $filename = $iter->() ) ) {
+            my ($fh) = App::Ack::open_file( $filename );
+            $nmatches += App::Ack::search_and_list( $fh, $filename, $regex, \%opt );
+            App::Ack::close_file( $fh, $filename );
+            last if $nmatches && $opt{1};
+        }
     }
     else {
         $opt{show_filename} = 0 if $opt{h};
@@ -97,8 +106,10 @@ sub main {
         $opt{show_filename} = 0 if $opt{output};
 
         my $nmatches = 0;
-        while ( defined ( my $file = $iter->() ) ) {
-            $nmatches += App::Ack::search( $file, $regex, \%opt );
+        while ( defined ( my $filename = $iter->() ) ) {
+            my ($fh,$could_be_binary) = App::Ack::open_file( $filename );
+            $nmatches += App::Ack::search( $fh, $could_be_binary, $filename, $regex, \%opt );
+            App::Ack::close_file( $fh, $filename );
             last if $nmatches && $opt{1};
         }
     }
