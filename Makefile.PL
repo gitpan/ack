@@ -60,8 +60,16 @@ prof: all
 	$(PERL_T) -d:DProf ack-standalone --color --group -w foo ~/parrot >> /dev/null 2>&1
 	dprofpp -R
 
+profiler: all
+	$(PERL_T) -MDevel::Profiler ack-standalone --color --group -w foo ~/parrot >> /dev/null 2>&1
+	dprofpp -R
+
+smallprof: all
+	$(PERL_T) -d:SmallProf ack-standalone --color --group -w foo ~/parrot >> /dev/null 2>&1
+	sort -k 2nr,2 smallprof.out | less
+
 $(STANDALONE) : $(ACK) $(APP_ACK_PM) squash Makefile
-	$(PERL_T) squash ack File::Next $(APP_ACK_PM) > $(STANDALONE)
+	$(PERL) squash ack File::Next $(APP_ACK_PM) > $(STANDALONE)
 	$(CHMOD) +x $(STANDALONE)
 	$(PERL_T) -c $(STANDALONE)
 

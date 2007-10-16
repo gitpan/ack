@@ -3,7 +3,7 @@
 use warnings;
 use strict;
 
-our $VERSION   = '1.67_02';
+our $VERSION   = '1.68';
 # Check http://petdance.com/ack/ for updates
 
 # These are all our globals.
@@ -476,6 +476,7 @@ L<http://ack.googlecode.com/svn/>
 How appropriate to have I<ack>nowledgements!
 
 Thanks to everyone who has contributed to ack in any way, including
+Nigel Metheringham,
 Gabor Szabo,
 Tod Hagan,
 Michael Hendricks,

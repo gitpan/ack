@@ -9,14 +9,14 @@ App::Ack - A container for functions for the ack program
 
 =head1 VERSION
 
-Version 1.67_02
+Version 1.68
 
 =cut
 
 our $VERSION;
 our $COPYRIGHT;
 BEGIN {
-    $VERSION = '1.67_02';
+    $VERSION = '1.68';
     $COPYRIGHT = 'Copyright 2005-2007 Andy Lester, all rights reserved.';
 }
 
@@ -54,6 +54,7 @@ BEGIN {
         csharp      => [qw( cs )],
         css         => [qw( css )],
         elisp       => [qw( el )],
+        erlang      => [qw( erl )],
         fortran     => [qw( f f77 f90 f95 f03 for ftn fpp )],
         haskell     => [qw( hs lhs )],
         hh          => [qw( h )],
@@ -158,8 +159,8 @@ sub get_command_line_options {
         'g=s'                   => \$opt{g},
         'follow!'               => \$opt{follow},
         'group!'                => \$opt{group},
-        h                       => \$opt{h},
-        H                       => \$opt{H},
+        'h|no-filename'         => \$opt{h},
+        'H|with-filename'       => \$opt{H},
         'i|ignore-case'         => \$opt{i},
         'l|files-with-matches'  => \$opt{l},
         'L|files-without-match' => sub { $opt{l} = $opt{v} = 1 },
@@ -691,7 +692,7 @@ sub close_file {
 }
 
 
-=head2 search
+=head2 search( $fh, $could_be_binary, $filename, $regex, \%opt )
 
 Main search method
 
@@ -709,9 +710,15 @@ sub search {
     my $output_func = $opt->{output};
 
     my $v = $opt->{v};
+    my $passthru = $opt->{passthru};
+    my $show_filename = $opt->{show_filename};
+    my $max = $opt->{m};
+    my $group = $opt->{group};
+    my $color = $opt->{color};
+
     while (<$fh>) {
         if ( $v ? /$regex/o : !/$regex/o ) {
-            print if $opt->{passthru};
+            print if $passthru;
             next;
         }
         ++$nmatches;
@@ -723,20 +730,20 @@ sub search {
             }
             $could_be_binary = 0;
         }
-        if ( $opt->{show_filename} ) {
+        if ( $show_filename ) {
             if ( not defined $display_filename ) {
                 $display_filename =
-                    $opt->{color}
+                    $color
                         ? Term::ANSIColor::colored( $filename, $ENV{ACK_COLOR_FILENAME} )
                         : $filename;
             }
-            if ( $opt->{group} ) {
-                print "$display_filename\n" if $nmatches == 1;
-                print "$.:";
+            if ( $group ) {
+                print $display_filename, "\n" if $nmatches == 1;
             }
             else {
-                print "${display_filename}:$.:";
+                print $display_filename, ':';
             }
+            print $., ':';
         }
 
         if ( $output_func ) {
@@ -745,7 +752,7 @@ sub search {
             }
         }
         else {
-            if ( $opt->{color} ) {
+            if ( $color ) {
                 if ( s/($regex)/Term::ANSIColor::colored($1,$ENV{ACK_COLOR_MATCH})/eg ) {
                     # Before \n, reset the color and clear to end of line
                     s/\n$/\e[0m\e[K\n/;
@@ -754,10 +761,10 @@ sub search {
             print;
         }
 
-        last if $opt->{m} && ( $nmatches >= $opt->{m} );
+        last if $max && ( $nmatches >= $max );
     } # while
 
-    if ( $nmatches && $opt->{show_filename} && $opt->{group} ) {
+    if ( $nmatches && $show_filename && $group ) {
         print "\n";
     }
 
@@ -765,7 +772,7 @@ sub search {
 }   # search()
 
 
-=head2 search_and_list
+=head2 search_and_list( $fh, $filename, $regex, \%opt )
 
 Optimized version of searching for -l and --count, which do not
 show lines.
@@ -779,11 +786,10 @@ sub search_and_list {
     my $opt = shift;
 
     my $nmatches = 0;
-    my $v = $opt->{v};
     my $count = $opt->{count};
 
-    while (<$fh>) {
-        if ( $v ) {
+    if ( $opt->{v} ) {
+        while (<$fh>) {
             if ( /$regex/o ) {
                 return 0 unless $count;
             }
@@ -791,7 +797,9 @@ sub search_and_list {
                 ++$nmatches;
             }
         }
-        else {
+    }
+    else {
+        while (<$fh>) {
             if ( /$regex/o ) {
                 ++$nmatches;
                 last unless $count;
@@ -805,7 +813,7 @@ sub search_and_list {
         print "\n";
     }
     elsif ( $count && !$opt->{l} ) {
-        print "$filename:0\n";;
+        print "$filename:0\n";
     }
 
     return $nmatches ? 1 : 0;
