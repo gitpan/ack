@@ -9,14 +9,14 @@ App::Ack - A container for functions for the ack program
 
 =head1 VERSION
 
-Version 1.69_01
+Version 1.70
 
 =cut
 
 our $VERSION;
 our $COPYRIGHT;
 BEGIN {
-    $VERSION = '1.69_01';
+    $VERSION = '1.70';
     $COPYRIGHT = 'Copyright 2005-2007 Andy Lester, all rights reserved.';
 }
 
@@ -86,7 +86,6 @@ BEGIN {
         yaml        => [qw( yaml yml )],
         xml         => [qw( xml dtd xslt )],
     );
-
 
     while ( my ($type,$exts) = each %mappings ) {
         if ( ref $exts ) {
@@ -167,6 +166,7 @@ sub get_command_line_options {
         'h|no-filename'         => \$opt{h},
         'H|with-filename'       => \$opt{H},
         'i|ignore-case'         => \$opt{i},
+        'lines=s@'              => \$opt{lines},
         'l|files-with-matches'  => \$opt{l},
         'L|files-without-match' => sub { $opt{l} = $opt{v} = 1 },
         'm|max-count=i'         => \$opt{m},
@@ -212,10 +212,65 @@ sub get_command_line_options {
     Getopt::Long::GetOptions( %{$getopt_specs} ) or
         App::Ack::die( 'See ack --help or ack --man for options.' );
 
-    apply_defaults(\%opt);
+    my %defaults = (
+        all            => 0,
+        color          => $to_screen && !$App::Ack::is_windows,
+        follow         => 0,
+        group          => $to_screen,
+        before_context => 0,
+        after_context  => 0,
+    );
+    while ( my ($key,$value) = each %defaults ) {
+        if ( not defined $opt{$key} ) {
+            $opt{$key} = $value;
+        }
+    }
+
+    if ( defined $opt{m} && $opt{m} <= 0 ) {
+        App::Ack::die( '-m must be greater than zero' );
+    }
+
+    for ( qw( before_context after_context ) ) {
+        if ( defined $opt{$_} && $opt{$_} < 0 ) {
+            App::Ack::die( "--$_ may not be negative" );
+        }
+    }
 
     if ( defined( my $val = $opt{output} ) ) {
         $opt{output} = eval qq[ sub { "$val" } ];
+    }
+    if ( defined( my $l = $opt{lines} ) ) {
+        # --line=1 --line=5 is equivalent to --line=1,5
+        my @lines = split( /,/, join( ',', @{$l} ) );
+
+        # --line=1-3 is equivalent to --line=1,2,3
+        @lines = map {
+            my @ret;
+            if ( /-/ ) {
+                my ($from, $to) = split /-/, $_;
+                if ( $from > $to ) {
+                    App::Ack::warn( "ignoring --line=$from-$to" );
+                    @ret = ();
+                }
+                else {
+                    @ret = ( $from .. $to );
+                }
+            }
+            else {
+                @ret = ( $_ );
+            };
+            @ret
+        } @lines;
+
+        if ( @lines ) {
+            my %uniq;
+            @uniq{ @lines } = ();
+            $opt{lines} = [ sort { $a <=> $b } keys %uniq ];   # numerical sort and each line occurs only once!
+        }
+        else {
+            # happens if there are only ignored --line directives
+            App::Ack::die( 'All --line options are invalid.' );
+        }
     }
 
     return %opt;
@@ -305,13 +360,19 @@ sub filetypes {
 Returns true if the filename is one that we can search, and false
 if it's one that we should ignore like a coredump or a backup file.
 
+Recognized files:
+  /~$/            - Unix backup files
+  /#.+#$/         - Emacs swap files
+  /[._].*\.swp$/  - Vi(m) swap files
+  /core\.\d+$/    - core dumps
+
 =cut
 
 sub is_searchable {
     my $filename = shift;
 
     return if $filename =~ /~$/;
-    return if $filename =~ m{$path_sep_regex?(?:#.+#|core\.\d+)$}o;
+    return if $filename =~ m{$path_sep_regex?(?:#.+#|core\.\d+|[._].*\.swp)$}o;
 
     return 1;
 }
@@ -423,6 +484,7 @@ Searching:
   -Q, --literal         Quote all metacharacters; expr is literal
 
 Search output:
+  --line=NUM            Only print line(s) NUM of each file
   -l, --files-with-matches
                         Only print filenames containing matches
   -L, --files-without-match
@@ -433,6 +495,7 @@ Search output:
   --output=expr         Output the evaluation of expr for each line
                         (turns off text highlighting)
   -m, --max-count=NUM   Stop searching in a file after NUM matches
+  -1                    Stop searching after one match, same as -m1
   -H, --with-filename   Print the filename for each match
   -h, --no-filename     Suppress the prefixing filename on output
   -c, --count           Show number of lines matching per file
@@ -662,10 +725,6 @@ Main search method
     my $regex;
     my $display_filename;
 
-    my $output_func;
-    my $show_filename;
-    my $group;
-    my $color;
     my $keep_context;
 
     my $last_output_line; # number of the last line that has been output
@@ -685,10 +744,15 @@ sub search {
     my $nmatches = 0;
 
     $display_filename = undef;
-    $output_func = $opt->{output};
-    $show_filename = $opt->{show_filename};
-    $group = $opt->{group};
-    $color = $opt->{color};
+
+    # for --line processing
+    my $has_lines = 0;
+    my @lines;
+    if ( defined $opt->{lines} ) {
+        $has_lines = 1;
+        @lines = ( @{$opt->{lines}}, -1 );
+        undef $regex; # Don't match when printing matching line
+    }
 
     # for context processing
     $last_output_line = -1;
@@ -699,24 +763,41 @@ sub search {
     $keep_context = ($before_context || $after_context) && !$passthru;
 
     my @before;
+    my $before_starts_at_line;
     my $after = 0; # number of lines still to print after a match
 
     while (<$fh>) {
-        if ( $v ? /$regex/o : !/$regex/o ) {
-            print if $passthru;
+        if ( $has_lines
+               ? $. != $lines[0]
+               : $v ? /$regex/o : !/$regex/o ) {
+            if ( $passthru ) {
+                print;
+                next;
+            }
+
             if ( $keep_context ) {
                 if ( $after ) {
-                    print_match_or_context( $_, $., 0 );
+                    print_match_or_context( $opt, 0, $., $_ );
                     $after--;
                 }
-                else {
-                    push @before, [$_, $.];
-                    shift @before if @before > $before_context;
+                elsif ( $before_context ) {
+                    if ( @before ) {
+                        if ( @before >= $before_context ) {
+                            shift @before;
+                            ++$before_starts_at_line;
+                        }
+                    }
+                    else {
+                        $before_starts_at_line = $.;
+                    }
+                    push @before, $_;
                 }
             }
             next;
-        } 
+        } # not a match
+
         ++$nmatches;
+        shift @lines if $has_lines;
 
         if ( $could_be_binary ) {
             if ( -B $filename ) {
@@ -726,18 +807,17 @@ sub search {
             $could_be_binary = 0;
         }
         if ( $keep_context ) {
-            for my $i ( @before ) {
-                print_match_or_context( @{$i}[0,1], 0 );
-            }
+            print_match_or_context( $opt, 0, $before_starts_at_line, @before );
             @before = ();
+            undef $before_starts_at_line;
             $after = $after_context;
         }
-        print_match_or_context( $_, $., 1 );
+        print_match_or_context( $opt, 1, $., $_ );
 
-        last if $max && ( $nmatches >= $max );
+        last if $max && ( $nmatches >= $max ) && !$after;
     } # while
 
-    if ( $nmatches && $show_filename && $group ) {
+    if ( $nmatches && $opt->{show_filename} && $opt->{group} ) {
         print "\n";
     }
 
@@ -745,17 +825,20 @@ sub search {
 }   # search()
 
 
-=head2 print_match_or_context( $line, $line_no, $is_match )
+=head2 print_match_or_context( $opt, $is_match, $starting_line_no, @lines )
 
 Prints out a matching line or a line of context around a match.
 
 =cut
 
 sub print_match_or_context {
-    local $_     = shift; # line to print
-    my $line_no  = shift; # line number of that line
+    my $opt      = shift; # opts array
     my $is_match = shift; # is there a match on the line?
-    my $sep = $is_match ? ':' : '-';
+    my $line_no  = shift;
+
+    my $color = $opt->{color};
+    my $group = $opt->{group};
+    my $show_filename = $opt->{show_filename};
 
     if ( $show_filename ) {
         if ( not defined $display_filename ) {
@@ -769,35 +852,42 @@ sub print_match_or_context {
         }
     }
 
-    if ( $keep_context && !$output_func ) {
-        if ( ( $last_output_line != $line_no - 1 ) &&
-            ( $any_output || ( !$group && $context_overall_output_count++ > 0 ) ) ) {
-            print "--\n";
+    my $sep = $is_match ? ':' : '-';
+    my $output_func = $opt->{output};
+    for ( @_ ) {
+        if ( $keep_context && !$output_func ) {
+            if ( ( $last_output_line != $line_no - 1 ) &&
+                ( $any_output || ( !$group && $context_overall_output_count++ > 0 ) ) ) {
+                print "--\n";
+            }
+            # to ensure separators between different files when --nogroup
+
+            $last_output_line = $line_no;
         }
-        # to ensure separators between different files when --nogroup
 
-        $last_output_line = $line_no;
-    }
-    $any_output = 1;
-
-    if ( $show_filename ) {
-        print $display_filename, $sep unless $group;
-        print $line_no, $sep;
-    }
-
-    if ( $output_func ) {
-        while ( /$regex/go ) {
-            print $output_func->(), "\n";
+        if ( $show_filename ) {
+            print $display_filename, $sep if not $group;
+            print $line_no, $sep;
         }
-    }
-    else {
-        if ( $color && $is_match ) {
-            if ( s/($regex)/Term::ANSIColor::colored($1,$ENV{ACK_COLOR_MATCH})/eg ) {
-                s/\n$/\e[0m\e[K\n/;     # Before \n, reset the color and clear to end of line
+
+        if ( $output_func ) {
+            while ( /$regex/go ) {
+                print $output_func->(), "\n";
             }
         }
-        print;
+        else {
+            if ( $color && $is_match && $regex ) {
+                if ( s/($regex)/Term::ANSIColor::colored($1,$ENV{ACK_COLOR_MATCH})/eg ) {
+                    s/\n$/\e[0m\e[K\n/;     # Before \n, reset the color and clear to end of line
+                }
+            }
+            print;
+        }
+        $any_output = 1;
+        ++$line_no;
     }
+
+    return;
 } # print_match_or_context()
 
 } # scope around search() and print_match_or_context()
@@ -850,33 +940,6 @@ sub search_and_list {
     return $nmatches ? 1 : 0;
 }   # search_and_list()
 
-
-=head2 apply_defaults
-
-Apply the default options
-
-=cut
-
-sub apply_defaults {
-    my $opt = shift;
-
-    my %defaults = (
-        all            => 0,
-        color          => $to_screen && !$App::Ack::is_windows,
-        follow         => 0,
-        group          => $to_screen,
-        m              => 0,
-        before_context => 0,
-        after_context  => 0,
-    );
-    while ( my ($key,$value) = each %defaults ) {
-        if ( not defined $opt->{$key} ) {
-            $opt->{$key} = $value;
-        }
-    }
-
-    return;
-}
 
 =head2 filetypes_supported_set
 

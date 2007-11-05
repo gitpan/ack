@@ -3,7 +3,7 @@
 use warnings;
 use strict;
 
-use Test::More tests => 8;
+use Test::More tests => 9;
 delete @ENV{qw( ACK_OPTIONS ACKRC )};
 
 use lib 't';
@@ -63,7 +63,7 @@ Well, I grew up quick and I grew up mean,
     -- "A Boy Named Sue", Johnny Cash
 EOF
 
-    my $regex = q/'[nN]amed Sue'/;
+    my $regex = q/"[nN]amed Sue"/;
 
     my @files = qw( t/text/boy-named-sue.txt );
     my @args = ( '--text', '-A2', $regex );
@@ -91,15 +91,36 @@ EOF
     lists_match( \@results, \@expected, "Looking for $regex - context defaults to 2" );
 }
 
+# -m1 must not stop the ending context from displaying
+CONTEXT_DEFAULT: {
+    my @expected = split( /\n/, <<"EOF" );
+And it got a lot of laughs from a' lots of folks,
+It seems I had to fight my whole life through.
+Some gal would giggle and I'd turn red
+And some guy'd laugh and I'd bust his head,
+I tell ya, life ain't easy for a boy named Sue.
+EOF
+
+    my $regex = 'giggle';
+
+    my @files = qw( t/text/boy-named-sue.txt );
+    my @args = ( '--text', '-1', '-C', $regex );
+    my @results = run_ack( @args, @files );
+
+    lists_match( \@results, \@expected, "Looking for $regex with -1" );
+}
+
 # highlighting works with context
 HIGHLIGHTING: {
-    skip 'Highlighting does not work on Windows', 2 if $is_windows;
+    SKIP: {
+        skip 'Highlighting does not work on Windows', 2 if $is_windows;
 
-    my @ack_args = qw( July -C5 --text --color );
-    my @results = pipe_into_ack( 't/text/4th-of-july.txt', @ack_args );
-    my @escaped_lines = grep { /\e/ } @results;
-    is( scalar @escaped_lines, 2, 'Only two lines are highlighted' );
-    is( scalar @results, 18, 'Expecting altogether 18 lines back' );
+        my @ack_args = qw( July -C5 --text --color );
+        my @results = pipe_into_ack( 't/text/4th-of-july.txt', @ack_args );
+        my @escaped_lines = grep { /\e/ } @results;
+        is( scalar @escaped_lines, 2, 'Only two lines are highlighted' );
+        is( scalar @results, 18, 'Expecting altogether 18 lines back' );
+    }
 }
 
 # TODO: How do I test this?
