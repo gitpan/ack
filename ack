@@ -3,7 +3,7 @@
 use warnings;
 use strict;
 
-our $VERSION   = '1.74';
+our $VERSION   = '1.75_01';
 # Check http://petdance.com/ack/ for updates
 
 # These are all our globals.
@@ -110,7 +110,19 @@ sub main {
         my $nmatches = 0;
         while ( defined ( my $filename = $iter->() ) ) {
             my ($fh,$could_be_binary) = App::Ack::open_file( $filename );
-            $nmatches += App::Ack::search( $fh, $could_be_binary, $filename, $regex, \%opt );
+            my $needs_line_scan;
+            if ( $regex && !$opt{passthru} ) {
+                $needs_line_scan = App::Ack::needs_line_scan( $fh, $regex );
+                if ( $needs_line_scan ) {
+                    seek( $fh, 0, 0 );
+                }
+            }
+            else {
+                $needs_line_scan = 1;
+            }
+            if ( $needs_line_scan ) {
+                $nmatches += App::Ack::search( $fh, $could_be_binary, $filename, $regex, \%opt );
+            }
             App::Ack::close_file( $fh, $filename );
             last if $nmatches && $opt{1};
         }
@@ -170,8 +182,8 @@ specified.  However, it will ignore the shadow directories used by
 many version control systems, and the build directories used by the
 Perl MakeMaker system.
 
-The following directories will never be descended into: F<_darcs>,
-F<CVS>, F<RCS>, F<SCCS>, F<.svn>, F<blib>, F<.git>
+For a complete list of directories that do not get searched, run
+F<ack --help>.
 
 =head1 WHEN TO USE GREP
 
@@ -513,6 +525,8 @@ L<http://ack.googlecode.com/svn/>
 How appropriate to have I<ack>nowledgements!
 
 Thanks to everyone who has contributed to ack in any way, including
+Uri Guttman,
+Peter Lewis,
 Kevin Riggle,
 Ori Avtalion,
 Torsten Blix,
