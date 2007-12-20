@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name:                ack
-version:             1.75_01
+version:             1.76
 abstract:            A grep-like program specifically for large source trees
 license:             ~
 generated_by:        ExtUtils::MakeMaker version 6.36
@@ -20,3 +20,6 @@ author:
 resources:
     homepage: http://petdance.com/ack/
     bugtracker: http://code.google.com/p/ack/issues/list
+    license: http://dev.perl.org/licenses/
+    Repository: http://code.google.com/p/ack/source
+    MailingList: http://groups.google.com/group/ack-users
