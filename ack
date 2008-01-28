@@ -3,7 +3,7 @@
 use warnings;
 use strict;
 
-our $VERSION   = '1.76';
+our $VERSION   = '1.77_01';
 # Check http://petdance.com/ack/ for updates
 
 # These are all our globals.
@@ -23,7 +23,7 @@ MAIN: {
     }
 
     # Priorities! Get the --thpppt checking out of the way.
-    /^--th[bp]+t$/ && App::Ack::_thpppt($_) for @ARGV;
+    /^--th[pt]+t+$/ && App::Ack::_thpppt($_) for @ARGV;
     if ( !@ARGV ) {
         App::Ack::show_help();
         exit 1;
@@ -66,15 +66,23 @@ sub main {
         @what = '.'; # Assume current directory
         $opt{show_filename} = 1;
     }
-    #XXX Barf if the starting points don't exist
+
+    # Barf if the starting points don't exist
+    for my $start_point (@what) {
+        App::Ack::warn("$start_point: No such file or directory") unless -e $start_point;
+    }
+    # Starting points are always search, no matter what
+    my $is_starting_point = sub { return grep { $_ eq $_[0] } @what };
 
     my $iter =
         File::Next::files( {
             file_filter     => $opt{u}
                                     ? sub {1}
                                     : $opt{all}
-                                        ? sub { return App::Ack::is_searchable( $File::Next::name ) }
-                                        : \&App::Ack::is_interesting,
+                                        ? sub { return    $is_starting_point->( $File::Next::name )
+                                                       || App::Ack::is_searchable( $File::Next::name ) }
+                                        : sub { return    $is_starting_point->( $File::Next::name )
+                                                       || App::Ack::is_interesting( @_ ) },
             descend_filter  => $opt{n}
                                     ? sub {0}
                                     : $opt{u}
@@ -93,6 +101,7 @@ sub main {
         my $nmatches = 0;
         while ( defined ( my $filename = $iter->() ) ) {
             my ($fh) = App::Ack::open_file( $filename );
+            next unless defined $fh; # error while opening file
             $nmatches += App::Ack::search_and_list( $fh, $filename, \%opt );
             App::Ack::close_file( $fh, $filename );
             last if $nmatches && $opt{1};
@@ -105,6 +114,7 @@ sub main {
         my $nmatches = 0;
         while ( defined ( my $filename = $iter->() ) ) {
             my ($fh,$could_be_binary) = App::Ack::open_file( $filename );
+            next unless defined $fh; # error while opening file
             my $needs_line_scan;
             if ( $opt{regex} && !$opt{passthru} ) {
                 $needs_line_scan = App::Ack::needs_line_scan( $fh, $opt{regex}, \%opt );
@@ -170,6 +180,9 @@ including:
 
 =back
 
+There is one exception, however, I<ack> always searches the files
+given on the command line, no matter what type.
+
 =head1 DIRECTORY SELECTION
 
 I<ack> descends through the directory tree of the starting directories
@@ -185,12 +198,8 @@ F<ack --help>.
 I<ack> trumps I<grep> as an everyday tool 99% of the time, but don't
 throw I<grep> away, because there are times you'll still need it.
 
-I<ack> only searches through files of types that it recognizes.  If
-it can't tell what type a file is, then it won't look.  If that's
-annoying to you, use I<grep>.
-
-If you truly want to search every file and every directory, I<ack>
-won't do it.  You'll need to rely on I<grep>.
+I<ack> searches by default only through files of types that it
+recognizes. If you don't want that, use the I<-u> option.
 
 =head1 OPTIONS
 
@@ -355,6 +364,18 @@ Type specifications can be repeated and are ORed together.
 
 See I<ack --help=types> for a list of valid types.
 
+=item B<--type-add I<TYPE>=I<.EXTENSION>[,I<.EXT2>[,...]]>
+
+Files with the given EXTENSION(s) are recognized as being of (the
+existing) type TYPE. See also L</"Defining your own types">.
+
+
+=item B<--type-set I<TYPE>=I<.EXTENSION>[,I<.EXT2>[,...]]>
+
+Files with the given EXTENSION(s) are recognized as being of type
+TYPE. This replaces an existing definition for type TYPE.  See also
+L</"Defining your own types">. 
+
 =item B<-u, --unrestricted>
 
 All files and directories (including blib/, core.*, ...) are searched,
@@ -397,6 +418,55 @@ might look like this:
 
 F<ack> looks in your home directory for the F<.ackrc>.  You can
 specify another location with the F<ACKRC> variable, below.
+
+=head1 Defining your own types
+
+ack allows you to define your own types in addition to the predefined
+types. This is done with command line options that are best put into
+an F<.ackrc> file - then you do not have to define your types over and
+over again. In the following examples the options will always be shown
+on one command line so that they can be easily copy & pasted.
+
+I<ack --perl foo> searches for foo in all perl files. I<ack --help=types>
+tells you, that perl files are files ending
+in .pl, .pm, .pod or .t. So what if you would like to include .xs
+files as well when searching for --perl files? I<ack --type-add perl=.xs --perl foo>
+does this for you. B<--type-add> appends
+additional extensions to an existing type.
+
+If you want to define a new type, or completely redefine an existing
+type, then use B<--type-set>. I<ack --type-set
+eiffel=.e,.eiffel> defines the type I<eiffel> to include files with
+the extensions .e or .eiffel. So to search for all eiffel files
+containing the word Bertrand use I<ack --type-set eiffel=.e,.eiffel --eiffel Bertrand>.
+As usual, you can also write B<--type=eiffel>
+instead of B<--eiffel>. Negation also works, so B<--noeiffel> excludes
+all eiffel files from a search. Redefining also works: I<ack --type-set cc=.c,.h>
+and I<.xs> files no longer belong to the type I<cc>.
+
+In order to see all currently defined types, use I<--help types>, e.g.
+I<ack --type-set backup=.bak --type-add perl=.perl --help types>
+
+Restrictions:
+
+=over 4
+
+=item
+
+The types 'skipped', 'make', 'binary' and 'text' are considered "builtin" and
+cannot be altered.
+
+=item
+
+The shebang line recognition of the types 'perl', 'ruby', 'php', 'python',
+'shell' and 'xml' cannot be redefined by I<--type-set>, it is always
+active. However, the shebang line is only examined for files where the
+extension is not recognised. Therefore it is possible to say
+I<ack --type-set perl=.perl --type-set foo=.pl,.pm,.pod,.t --perl --nofoo> and
+only find your shiny new I<.perl> files (and all files with unrecognized extensiond
+and perl on the shebang line).
+
+=back
 
 =head1 ENVIRONMENT VARIABLES
 
@@ -450,14 +520,6 @@ step through the results in Vim:
   :grep Dumper perllib
 
 =cut
-
-=head1 GOTCHAS
-
-Note that FILES must still match valid selection rules.  For example,
-
-    ack something --perl foo.rb
-
-will search nothing, because I<foo.rb> is a Ruby file.
 
 =head1 AUTHOR
 
@@ -520,6 +582,7 @@ L<http://ack.googlecode.com/svn/>
 How appropriate to have I<ack>nowledgements!
 
 Thanks to everyone who has contributed to ack in any way, including
+David Dyck,
 Jason Porritt,
 Jjgod Jiang,
 Thomas Klausner,
@@ -562,7 +625,7 @@ and Pete Krawczyk.
 
 =head1 COPYRIGHT & LICENSE
 
-Copyright 2005-2007 Andy Lester, all rights reserved.
+Copyright 2005-2008 Andy Lester, all rights reserved.
 
 This program is free software; you can redistribute it and/or modify it
 under the same terms as Perl itself.

@@ -1,9 +1,46 @@
 Changelog for ack
 
+1.77_01     Sun Jan 27 20:52:27 CST 2008
+    [CHANGED FUNCTIONALITY]
+    ack now always searches files given on the command line, even
+    if they are of the wrong type or not recognized or normally
+    skipped.
+
+    .bak files are now automatically skipped.  I don't know how I
+    missed this before.
+
+    [FIXES]
+    Added a test for the Perl 5.10 regex bug fixed in 1.76.
+
+    Made the regex for --thppptttt a little more robust.  It used
+    to have to end with a single "t", but now it's more flexible.
+
+    Changed year in copyright note to 2008.
+
+    Updated references in README (removed link to CPAN RT Queue).
+
+    Fixed a problem with files with non-native line-ending (DOS or
+    MacOS on Unix). Instead of the matching line an empty line was
+    output. This was reported by multiple people, thanks!
+
+    Rewrote a test to work around a bug in old versions of
+    Test::More (before 0.48_2).
+
+    Fixed ack failure when encountering unreadable files. Reported
+    by David Dyck, thank you!
+
+    [ENHANCEMENTS]
+    Ack warns now when the files/directories given on the command
+    line don't exist.
+
+    Finally ack allows you to define your own types! See options
+    --type-set and --type-add. There are some restrictions left,
+    but it should suffice for most things.
+
 1.76        Wed Dec 19 23:23:05 CST 2007
     [FIXES]
     Now runs correctly under Perl 5.10.  ack had been relying on a
-    mistaken behavior of Perl 5.8, and Perl 5.10 fixed it.
+    mistaken regex behavior of Perl 5.8, and Perl 5.10 fixed it.
 
     [ENHANCEMENTS]
     Add .xhtml to --html

@@ -4,7 +4,6 @@ use warnings;
 use strict;
 
 use Test::More tests => 6;
-use File::Next 0.34; # For the reslash() function
 
 use lib 't';
 use Util qw/run_ack/;
@@ -33,4 +32,6 @@ sub check_u {
     # searching without -u
     ok(  scalar( grep { /$pattern/ } @results_with_u ), "$file found with -u in $dir" );
     ok( !scalar( grep { /$pattern/ } @results_without_u ), "$file not found without -u in $dir" );
+
+    return
 }

@@ -102,7 +102,7 @@ LINE_AND_PASSTHRU: {
 EOF
 
     my @files = qw( t/swamp/perl.pod );
-    my @args = ( '--lines=2', '--passthru' );
+    my @args = qw( --lines=2 --passthru );
     my @results = run_ack( @args, @files );
 
     lists_match( \@results, \@expected, 'Checking --passthru behaviour with --line' );

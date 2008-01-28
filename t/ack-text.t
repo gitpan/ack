@@ -32,6 +32,8 @@ ACK_F_TEXT: {
         t/ack-u.t
         t/ack-v.t
         t/ack-w.t
+        t/code.t
+        t/command-line-files.t
         t/context.t
         t/etc/buttonhook.html.xxx
         t/etc/buttonhook.noxml.xxx
@@ -45,9 +47,11 @@ ACK_F_TEXT: {
         t/etc/shebang.rb.xxx
         t/etc/shebang.sh.xxx
         t/filetypes.t
+        t/file-permission.t
         t/interesting.t
         t/longopts.t
         t/module.t
+        t/multiline.t
         t/pod-coverage.t
         t/pod.t
         t/standalone.t
@@ -56,6 +60,8 @@ ACK_F_TEXT: {
         t/swamp/crystallography-weenies.f
         t/swamp/c-header.h
         t/swamp/c-source.c
+        t/swamp/file.foo
+        t/swamp/file.bar
         t/swamp/html.htm
         t/swamp/html.html
         t/swamp/javascript.js

@@ -3,8 +3,7 @@
 use warnings;
 use strict;
 
-use Test::More tests => 20;
-use File::Next 0.34; # For the reslash() function
+use Test::More tests => 37;
 
 use lib 't';
 use Util qw( sets_match );
@@ -26,6 +25,19 @@ my $ruby = [qw(
 my $fortran = [qw(
     t/swamp/pipe-stress-freaks.F
     t/swamp/crystallography-weenies.f
+)];
+
+my $foo = [qw(
+    t/swamp/file.foo
+)];
+
+my $bar = [qw(
+    t/swamp/file.bar
+)];
+
+my $xml = [qw(
+    t/etc/buttonhook.rss.xxx
+    t/etc/buttonhook.xml.xxx
 )];
 
 my $perl = [qw(
@@ -51,12 +63,16 @@ my $perl = [qw(
     t/ack-u.t
     t/ack-v.t
     t/ack-w.t
+    t/code.t
+    t/command-line-files.t
     t/context.t
     t/etc/shebang.pl.xxx
     t/filetypes.t
+    t/file-permission.t
     t/interesting.t
     t/longopts.t
     t/module.t
+    t/multiline.t
     t/pod-coverage.t
     t/pod.t
     t/standalone.t
@@ -73,8 +89,17 @@ my $perl = [qw(
     t/Util.pm
 )];
 
+my $skipped = [
+    't/etc/core.2112',
+    't/swamp/#emacs-workfile.pl#',
+    't/swamp/options.pl.bak',
+];
+
 my $perl_ruby = [ @{$perl}, @{$ruby} ];
 my $cc_hh = [ @{$cc}, @{$hh} ];
+my $foo_bar = [ @{$foo}, @{$bar} ];
+my $foo_xml = [ @{$foo}, @{$xml} ];
+my $foo_bar_xml = [ @{$foo}, @{$bar}, @{$xml} ];
 
 check_with( '--perl', $perl );
 check_with( '--perl --noruby', $perl );
@@ -101,6 +126,33 @@ check_with( '--cc --nohh', $cc );
 
 check_with( '--fortran', $fortran );
 
+check_with( '--skipped', $skipped );
+
+# check --type-set
+check_with( '--type-set foo-type=.foo --foo-type', $foo );
+check_with( '--type-set foo-type=.foo --type=foo-type', $foo );
+check_with( '--type-set foo-type=.foo,.bar --foo-type', $foo_bar );
+check_with( '--type-set foo-type=.foo --type-set bar-type=.bar --foo-type --bar-type', $foo_bar );
+
+# check --type-add
+check_with( '--type-add xml=.foo --xml', $foo_xml );
+check_with( '--type-add xml=.foo,.bar --xml', $foo_bar_xml );
+
+# check that --type-set redefines
+check_with( '--type-set cc=.foo --cc', $foo );
+
+# check that builtin types cannot be changed
+for my $builtin ( qw/make skipped text binary/ ) {
+    check_error( "--type-set $builtin=.foo",
+        "ack-standalone: --type-set: Builtin type '$builtin' cannot be changed." );
+    check_error( "--type-add $builtin=.foo",
+        "ack-standalone: --type-add: Builtin type '$builtin' cannot be changed." );
+}
+
+# check that there is a warning for creating new types with --append_type
+check_warning( "--type-add foo=.foo --foo",
+        "Type 'foo' does not exist, creating with '.foo'" );
+
 sub check_with {
     my $options = shift;
     my $expected = shift;
@@ -108,7 +160,30 @@ sub check_with {
     my @expected = sort @{$expected};
 
     my @results = run_ack( '-f', $options );
+    @results = grep { !/~$/ } @results; # Don't see my vim backup files
 
     local $Test::Builder::Level = $Test::Builder::Level + 1;
     return sets_match( \@results, \@expected, "File lists match via $options" );
+}
+
+sub check_warning {
+    my $options = shift;
+    my $expected = shift;
+
+    my $redirect_stderr = '2>&1'; # Redirect STDERR to capture error message
+    my @results = run_ack( '-f', $options, $redirect_stderr );
+
+    local $Test::Builder::Level = $Test::Builder::Level + 1;
+    return ok( grep( /$expected/, @results ) , "Located warning message: $expected" );
+}
+
+sub check_error {
+    my $options = shift;
+    my $expected = shift;
+
+    my $redirect_stderr = '2>&1'; # Redirect STDERR to capture error message
+    my @results = run_ack( '-f', $options, $redirect_stderr );
+
+    local $Test::Builder::Level = $Test::Builder::Level + 1;
+    return is( "@results", $expected, "Correct error message: $expected" );
 }

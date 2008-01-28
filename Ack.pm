@@ -9,15 +9,15 @@ App::Ack - A container for functions for the ack program
 
 =head1 VERSION
 
-Version 1.76
+Version 1.77_01
 
 =cut
 
 our $VERSION;
 our $COPYRIGHT;
 BEGIN {
-    $VERSION = '1.76';
-    $COPYRIGHT = 'Copyright 2005-2007 Andy Lester, all rights reserved.';
+    $VERSION = '1.77_01';
+    $COPYRIGHT = 'Copyright 2005-2008 Andy Lester, all rights reserved.';
 }
 
 our %types;
@@ -70,7 +70,6 @@ BEGIN {
         haskell     => [qw( hs lhs )],
         hh          => [qw( h )],
         html        => [qw( htm html shtml xhtml )],
-        skipped     => q{Files, but not directories, normally skipped by ack (default: off)},
         lisp        => [qw( lisp )],
         java        => [qw( java properties )],
         js          => [qw( js )],
@@ -88,6 +87,7 @@ BEGIN {
         ruby        => [qw( rb rhtml rjs rxml )],
         scheme      => [qw( scm )],
         shell       => [qw( sh bash csh ksh zsh )],
+        skipped     => q{Files, but not directories, normally skipped by ack (default: off)},
         sql         => [qw( sql ctl )],
         tcl         => [qw( tcl )],
         tex         => [qw( tex cls sty )],
@@ -196,7 +196,7 @@ sub get_command_line_options {
         'version'   => sub { print_version_statement(); exit 1; },
         'help|?:s'  => sub { shift; show_help(@_); exit; },
         'help-types'=> sub { show_help_types(); exit; },
-        'man'       => sub {require Pod::Usage; Pod::Usage::pod2usage({-verbose => 2}); exit; },
+        'man'       => sub { require Pod::Usage; Pod::Usage::pod2usage({-verbose => 2}); exit; },
 
         'type=s'    => sub {
             # Whatever --type=xxx they specify, set it manually in the hash
@@ -213,17 +213,24 @@ sub get_command_line_options {
         }, # type sub
     };
 
-    for my $i ( filetypes_supported() ) {
-        $getopt_specs->{ "$i!" } = \$type_wanted{ $i };
-    }
-
     # Stick any default switches at the beginning, so they can be overridden
     # by the command line switches.
     unshift @ARGV, split( ' ', $ENV{ACK_OPTIONS} ) if defined $ENV{ACK_OPTIONS};
 
-    Getopt::Long::Configure( 'bundling', 'no_ignore_case' );
-    Getopt::Long::GetOptions( %{$getopt_specs} ) or
-        App::Ack::die( 'See ack --help or ack --man for options.' );
+    # first pass through options, looking for type definitions
+    def_types_from_ARGV();
+
+    for my $i ( filetypes_supported() ) {
+        $getopt_specs->{ "$i!" } = \$type_wanted{ $i };
+    }
+
+
+    {
+        my $parser = Getopt::Long::Parser->new();
+        $parser->configure( 'bundling', 'no_ignore_case', );
+        $parser->getoptions( %{$getopt_specs} ) or
+            App::Ack::die( 'See ack --help or ack --man for options.' );
+    }
 
     my %defaults = (
         all            => 0,
@@ -287,6 +294,84 @@ sub get_command_line_options {
     }
 
     return %opt;
+}
+
+=head2 def_types_from_ARGV
+
+Go through the command line arguments and look for
+I<--type-set foo=.foo,.bar> and I<--type-add xml=.rdf>.
+Remove them from @ARGV and add them to the supported filetypes,
+i.e. into %mappings, etc.
+
+=cut
+
+sub def_types_from_ARGV {
+    my @typedef;
+
+    my $parser = Getopt::Long::Parser->new();
+        # pass_through   => leave unrecognized command line arguments alone
+        # no_auto_abbrev => otherwise -c is expanded and not left alone
+    $parser->configure( 'no_ignore_case', 'pass_through', 'no_auto_abbrev' );
+    $parser->getoptions( 
+        'type-set=s' => sub { shift; push @typedef, ['c', shift] },
+        'type-add=s' => sub { shift; push @typedef, ['a', shift] },
+    ) or App::Ack::die( 'See ack --help or ack --man for options.' );
+
+    for my $td (@typedef) {
+        my ($type, $ext) = split '=', $td->[1];
+
+        if ( $td->[0] eq 'c' ) {
+            # type-set
+
+            # can't redefine types 'make', 'skipped', 'text' and 'binary'
+            App::Ack::die( "--type-set: Builtin type '$type' cannot be changed." )
+                if exists $mappings{$type} && ref $mappings{$type} ne 'ARRAY';
+
+            delete_type($type) if exists $mappings{$type};
+        } else {
+            # type-add
+
+            # can't append to types 'make', 'skipped', 'text' and 'binary'
+            App::Ack::die( "--type-add: Builtin type '$type' cannot be changed." )
+                if exists $mappings{$type} && ref $mappings{$type} ne 'ARRAY';
+
+            App::Ack::warn( "--type-add: Type '$type' does not exist, creating with '$ext' ..." )
+                unless exists $mappings{$type};
+        }
+
+        my @exts = map { s/^\.//; $_ } split ',', $ext; # %types stores extensions without leading '.'
+
+        if ( !exists $mappings{$type} || ref($mappings{$type}) eq 'ARRAY' ) {
+            push @{$mappings{$type}}, @exts;
+            for my $e ( @exts ) {
+                push @{$types{$e}}, $type;
+            }
+        } else {
+            App::Ack::die( "Cannot append to type '$type'." );
+        }
+    }
+
+    return;
+}
+
+=head2 delete_type
+
+Removes a type from the internal structures containing type
+information: %mappings, %types and %type_wanted.
+
+=cut
+
+sub delete_type {
+    my $type = shift;
+
+    App::Ack::die( "Internal error: Cannot delete builtin type '$type'." )
+        unless ref $mappings{$type} eq 'ARRAY';
+
+    delete $mappings{$type};
+    delete $type_wanted{$type};
+    for my $ext ( keys %types ) {
+        $types{$ext} = [ grep { $_ ne $type } @{$types{$ext}} ];
+    }
 }
 
 =head2 skipdir_filter
@@ -385,6 +470,7 @@ sub is_searchable {
     my $filename = shift;
 
     # If these are updated, update the --help message
+    return if $filename =~ /\.bak$/;
     return if $filename =~ /~$/;
     return if $filename =~ m{$path_sep_regex?(?:#.+#|core\.\d+|[._].*\.swp)$}o;
 
@@ -549,6 +635,15 @@ File inclusion/exclusion:
   --noperl              Exclude Perl files.
   --type=noperl         Exclude Perl files.
                         See "ack --help type" for supported filetypes.
+
+  --type-add TYPE=.EXTENSION[,.EXT2[,...]]
+                        Files with the given EXTENSION(s) are recognized as
+                        being of (the existing) type TYPE
+  --type-set TYPE=.EXTENSION[,.EXT2[,...]]
+                        Files with the given EXTENSION(s) are recognized as
+                        being of type TYPE. This replaces an existing
+                        definition for type TYPE. 
+
   --[no]follow          Follow symlinks.  Default is off.
 
   Directories ignored by default:
@@ -950,7 +1045,8 @@ sub print_match_or_context {
         else {
             if ( $color && $is_match && $regex ) {
                 if ( s/$regex/Term::ANSIColor::colored( substr($_, $-[0], $+[0] - $-[0]), $ENV{ACK_COLOR_MATCH} )/eg ) {
-                    s/\n$/\e[0m\e[K\n/;     # Before \n, reset the color and clear to end of line
+                    # At the end of the line reset the color and keep existing line ending
+                    s/([\r\n]*)$/\e[0m\e[K$1/;
                 }
             }
             print;

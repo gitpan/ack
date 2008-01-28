@@ -3,22 +3,21 @@
 use warnings;
 use strict;
 
-use Test::More tests => 6;
+use Test::More tests => 8;
 delete @ENV{qw( ACK_OPTIONS ACKRC )};
 
 use lib 't';
 use Util;
 
 NO_STARTDIR: {
-    my @expected = qw(
-    );
+    my @expected = ('ack-standalone: t/foo/non-existent: No such file or directory');
     my $regex = 'Makefile';
 
     my @files = qw( t/foo/non-existent );
     my @args = ( '-g', $regex );
-    my @results = run_ack( @args, @files );
+    my @results = run_ack( @args, @files, '2>&1' ); # redirect STDERR
 
-    sets_match( \@results, \@expected, "Looking for $regex" );
+    sets_match( \@results, \@expected, "Looking for $regex in non-existent file" );
 }
 
 
@@ -91,4 +90,28 @@ CASE_INSENSITIVE: {
     my @results = run_ack( @args, @files );
 
     sets_match( \@results, \@expected, "Looking for $regex, case-insensitive" );
+}
+
+FILE_ON_COMMAND_LINE_IS_ALWAYS_SEARCHED: {
+    my @expected = ( 't/swamp/#emacs-workfile.pl#' );
+    my $regex = 'emacs';
+
+    my @files = ( 't/swamp/#emacs-workfile.pl#' );
+    my @args = ( '-g', $regex );
+    my @results = run_ack( @args, @files );
+
+    sets_match( \@results, \@expected, "File on command line is always searched" );
+}
+
+FILE_ON_COMMAND_LINE_IS_ALWAYS_SEARCHED_EVEN_WITH_WRONG_TYPE: {
+    my @expected = qw(
+        t/swamp/parrot.pir
+    );
+    my $regex = 'parrot';
+
+    my @files = qw( t/swamp/parrot.pir );
+    my @args = ( '--html', '-g', $regex );
+    my @results = run_ack( @args, @files );
+
+    sets_match( \@results, \@expected, "File on command line is always searched, even with wrong type." );
 }
