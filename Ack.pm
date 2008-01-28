@@ -9,14 +9,14 @@ App::Ack - A container for functions for the ack program
 
 =head1 VERSION
 
-Version 1.77_01
+Version 1.77_02
 
 =cut
 
 our $VERSION;
 our $COPYRIGHT;
 BEGIN {
-    $VERSION = '1.77_01';
+    $VERSION = '1.77_02';
     $COPYRIGHT = 'Copyright 2005-2008 Andy Lester, all rights reserved.';
 }
 
@@ -70,10 +70,10 @@ BEGIN {
         haskell     => [qw( hs lhs )],
         hh          => [qw( h )],
         html        => [qw( htm html shtml xhtml )],
-        lisp        => [qw( lisp )],
         java        => [qw( java properties )],
         js          => [qw( js )],
         jsp         => [qw( jsp jspx jhtm jhtml )],
+        lisp        => [qw( lisp lsp )],
         make        => q{Makefiles},
         mason       => [qw( mas mhtml mpl mtxt )],
         objc        => [qw( m h )],
@@ -88,6 +88,7 @@ BEGIN {
         scheme      => [qw( scm )],
         shell       => [qw( sh bash csh ksh zsh )],
         skipped     => q{Files, but not directories, normally skipped by ack (default: off)},
+        smalltalk   => [qw( st )],
         sql         => [qw( sql ctl )],
         tcl         => [qw( tcl )],
         tex         => [qw( tex cls sty )],

@@ -1,5 +1,9 @@
+
 use File::Next ();
 use App::Ack ();
+use IPC::Open3 qw( open3 );
+use Symbol qw(gensym);
+use IO::File ();
 
 sub slurp {
     my $iter = shift;
@@ -15,11 +19,33 @@ sub slurp {
 sub run_ack {
     my @args = @_;
 
-    my $cmd = "$^X -T ./ack-standalone @args";
-    my @results = `$cmd`;
-    chomp @results;
+    my ($stdout,$stderr) = run_ack_with_stderr( @args );
+    is( scalar @{$stderr}, 0, 'Should have no output to stderr' );
 
-    return @results;
+    return @{$stdout};
+}
+
+sub run_ack_with_stderr {
+    my @args = @_;
+
+    my @stdout;
+    my @stderr;
+
+    my $cmd = "$^X -T ./ack-standalone @args";
+    local *CATCHERR = IO::File->new_tmpfile;
+    my $pid = open3( gensym, \*CATCHOUT, '>&CATCHERR', $cmd );
+    while( <CATCHOUT> ) {
+        push( @stdout, $_ );
+    }
+    waitpid($pid, 0);
+    seek CATCHERR, 0, 0;
+    while( <CATCHERR> ) {
+        push( @stderr, $_ );
+    }
+
+    chomp @stdout;
+    chomp @stderr;
+    return ( \@stdout, \@stderr );
 }
 
 sub pipe_into_ack {
