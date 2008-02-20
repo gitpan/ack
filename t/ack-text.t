@@ -21,9 +21,13 @@ ACK_F_TEXT: {
         t/ack-binary.t
         t/ack-c.t
         t/ack-color.t
+        t/ack-env.t
         t/ack-g.t
+        t/ack-group.t
         t/ack-h.t
+        t/ack-ignore-dir.t
         t/ack-line.t
+        t/ack-match.t
         t/ack-o.t
         t/ack-passthru.t
         t/ack-print0.t
@@ -62,6 +66,15 @@ ACK_F_TEXT: {
         t/swamp/c-source.c
         t/swamp/file.foo
         t/swamp/file.bar
+        t/swamp/groceries/fruit
+        t/swamp/groceries/junk
+        t/swamp/groceries/meat
+        t/swamp/groceries/another_subdir/fruit
+        t/swamp/groceries/another_subdir/junk
+        t/swamp/groceries/another_subdir/meat
+        t/swamp/groceries/subdir/fruit
+        t/swamp/groceries/subdir/junk
+        t/swamp/groceries/subdir/meat
         t/swamp/html.htm
         t/swamp/html.html
         t/swamp/javascript.js
@@ -78,6 +91,7 @@ ACK_F_TEXT: {
         t/text/4th-of-july.txt
         t/text/boy-named-sue.txt
         t/text/freedom-of-choice.txt
+        t/text/me-and-bobbie-mcgee.txt
         t/text/science-of-myth.txt
         t/text/shut-up-be-happy.txt
         t/Util.pm

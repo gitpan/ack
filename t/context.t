@@ -157,7 +157,6 @@ GROUPING_SINGLE_FILE: {
 $target_file
 1:#!/usr/bin/ruby
 EOF
-    push @expected, ''; # and an empty line
 
     my $regex = 'ruby';
     my @args = ( '--ruby', '--group', '-C', $regex );
@@ -172,6 +171,7 @@ EOF
 GROUPING_MULTIPLE_FILES: {
     my @target_file = (
         File::Next::reslash( 't/text/boy-named-sue.txt' ),
+        File::Next::reslash( 't/text/me-and-bobbie-mcgee.txt' ),
         File::Next::reslash( 't/text/science-of-myth.txt' ),
     );
     my @expected = split( /\n/, <<"EOF" );
@@ -182,12 +182,18 @@ $target_file[0]
 6:Was before he left, he went and named me Sue.
 
 $target_file[1]
+10-
+11:    Freedom's just another word for nothing left to lose
+--
+25-
+26:    Freedom's just another word for nothing left to lose
+
+$target_file[2]
 18-Consider the case of the woman whose faith helped her make it through
 19:When she was raped and cut up, left for dead in her trunk, her beliefs held true
 20-It doesn't matter if it's real or not
 21:'cause some things are better left without a doubt
 EOF
-    push @expected, ''; # and an empty line
 
     my $regex = 'left';
     my @files = qw( t/text/ );

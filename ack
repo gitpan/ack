@@ -3,7 +3,7 @@
 use warnings;
 use strict;
 
-our $VERSION   = '1.77_02';
+our $VERSION   = '1.77_03';
 # Check http://petdance.com/ack/ for updates
 
 # These are all our globals.
@@ -12,18 +12,31 @@ use File::Next 0.40;
 use App::Ack ();
 
 MAIN: {
-    unshift( @ARGV, App::Ack::read_ackrc() );
-    App::Ack::load_colors();
-
     if ( $App::Ack::VERSION ne $main::VERSION ) {
         App::Ack::die( "Program/library version mismatch\n\t$0 is $main::VERSION\n\t$INC{'App/Ack.pm'} is $App::Ack::VERSION" );
     }
+
+    # Do preliminary arg checking;
+    my $env_ok = 1;
+    for ( @ARGV ) {
+        last if ( $_ eq '--' );
+
+        # Priorities! Get the --thpppt checking out of the way.
+        /^--th[pt]+t+$/ && App::Ack::_thpppt($_);
+
+        # See if we want to ignore the environment. (Don't tell Al Gore.)
+        if ( /^--noenv$/ ) {
+            delete @ENV{qw( ACK_OPTIONS ACKRC ACK_COLOR_MATCH ACK_COLOR_FILENAME ACK_SWITCHES )};
+            $env_ok = 0;
+        }
+    }
+    unshift( @ARGV, App::Ack::read_ackrc() ) if $env_ok;
+    App::Ack::load_colors();
+
     if ( exists $ENV{ACK_SWITCHES} ) {
         App::Ack::warn( 'ACK_SWITCHES is no longer supported.  Use ACK_OPTIONS.' );
     }
 
-    # Priorities! Get the --thpppt checking out of the way.
-    /^--th[pt]+t+$/ && App::Ack::_thpppt($_) for @ARGV;
     if ( !@ARGV ) {
         App::Ack::show_help();
         exit 1;
@@ -40,7 +53,7 @@ sub main {
             $opt{$_} and App::Ack::die( "Can't use -$_ when acting as a filter." );
         }
         $opt{show_filename} = 0;
-        $opt{regex} = App::Ack::build_regex( shift @ARGV, \%opt );
+        $opt{regex} = App::Ack::build_regex( defined $opt{regex} ? $opt{regex} : shift @ARGV, \%opt );
         if ( my $nargs = @ARGV ) {
             my $s = $nargs == 1 ? '' : 's';
             App::Ack::warn( "Ignoring $nargs argument$s on the command-line while acting as a filter." );
@@ -49,10 +62,10 @@ sub main {
         exit 0;
     }
 
-    my $file_matching = $opt{f} || $opt{g} || $opt{lines};
+    my $file_matching = $opt{f} || $opt{lines};
     if ( !$file_matching ) {
         @ARGV or App::Ack::die( 'No regular expression found.' );
-        $opt{regex} = App::Ack::build_regex( shift @ARGV, \%opt );
+        $opt{regex} = App::Ack::build_regex( defined $opt{regex} ? $opt{regex} : shift @ARGV, \%opt );
     }
 
     my @what;
@@ -74,27 +87,28 @@ sub main {
     # Starting points are always search, no matter what
     my $is_starting_point = sub { return grep { $_ eq $_[0] } @what };
 
+    my $file_filter = $opt{u}   && defined $opt{G} ? sub { $File::Next::name =~ /$opt{G}/o }
+                    : $opt{all} && defined $opt{G} ? sub { $is_starting_point->( $File::Next::name ) || ( $File::Next::name =~ /$opt{G}/o && App::Ack::is_searchable( $File::Next::name ) ) }
+                    : $opt{u}                      ? sub {1}
+                    : $opt{all}                    ? sub { $is_starting_point->( $File::Next::name ) || App::Ack::is_searchable( $File::Next::name ) }
+                    : defined $opt{G}              ? sub { $is_starting_point->( $File::Next::name ) || ( $File::Next::name =~ /$opt{G}/o && App::Ack::is_interesting( @_ ) ) }
+                    :                                sub { $is_starting_point->( $File::Next::name ) || App::Ack::is_interesting( @_ ) }
+                    ;
     my $iter =
         File::Next::files( {
-            file_filter     => $opt{u}
-                                    ? sub {1}
-                                    : $opt{all}
-                                        ? sub { return    $is_starting_point->( $File::Next::name )
-                                                       || App::Ack::is_searchable( $File::Next::name ) }
-                                        : sub { return    $is_starting_point->( $File::Next::name )
-                                                       || App::Ack::is_interesting( @_ ) },
+            file_filter     => $file_filter,
             descend_filter  => $opt{n}
                                     ? sub {0}
                                     : $opt{u}
                                         ? sub {1}
-                                        : \&App::Ack::skipdir_filter,
+                                        : \&App::Ack::ignoredir_filter,
             error_handler   => sub { my $msg = shift; App::Ack::warn( $msg ) },
             sort_files      => $opt{sort_files},
             follow_symlinks => $opt{follow},
         }, @what );
 
     App::Ack::filetype_setup();
-    if ( $opt{f} || $opt{g} ) {
+    if ( $opt{f} ) {
         App::Ack::print_files( $iter, \%opt );
     }
     elsif ( $opt{l} || $opt{count} ) {
@@ -180,15 +194,18 @@ including:
 
 =back
 
-There is one exception, however, I<ack> always searches the files
-given on the command line, no matter what type.
+However, I<ack> always searches the files given on the command line,
+no matter what type. Furthermore, by specifying the B<-u> option all
+files will be searched.
 
 =head1 DIRECTORY SELECTION
 
 I<ack> descends through the directory tree of the starting directories
 specified.  However, it will ignore the shadow directories used by
 many version control systems, and the build directories used by the
-Perl MakeMaker system.
+Perl MakeMaker system.  You may add or remove a directory from this
+list with the B<--[no]ignore-dir> option. The option may be repeated
+to add/remove multiple directories from the ignore list.
 
 For a complete list of directories that do not get searched, run
 F<ack --help>.
@@ -198,8 +215,8 @@ F<ack --help>.
 I<ack> trumps I<grep> as an everyday tool 99% of the time, but don't
 throw I<grep> away, because there are times you'll still need it.
 
-I<ack> searches by default only through files of types that it
-recognizes. If you don't want that, use the I<-u> option.
+E.g., searching through huge files looking for regexes that can be
+expressed with I<grep> syntax should be quicker with I<grep>.
 
 =head1 OPTIONS
 
@@ -214,11 +231,11 @@ like F<blib>, F<CVS>, etc.)
 
 Print I<NUM> lines of trailing context after matching lines.
 
-=item B<-B I<NUM>>, B<--after-context=I<NUM>>
+=item B<-B I<NUM>>, B<--before-context=I<NUM>>
 
 Print I<NUM> lines of leading context before matching lines.
 
-=item B<-C [I<NUM>]>, B<--after-context[=I<NUM>]>
+=item B<-C [I<NUM>]>, B<--context[=I<NUM>]>
 
 Print I<NUM> lines (default 2) of context around matching lines.
 
@@ -235,6 +252,12 @@ B<--color> highlights the matching text.  B<--nocolor> supresses
 the color.  This is on by default unless the output is redirected,
 or running under Windows.
 
+=item B<--env>, B<--noenv>
+
+B<--noenv> disables all environment processing. No F<.ackrc> is read
+and all environment variables are ignored. By default, F<ack> considers
+F<.ackrc> and settings in the environment.
+
 =item B<-f>
 
 Only print the files that would be searched, without actually doing
@@ -248,11 +271,20 @@ or directories were specified on the command line.
 
 This is off by default.
 
-=item B<-g=I<REGEX>>
+=item B<-G I<REGEX>>
 
-Same as B<-f>, but only print files that match I<REGEX>.  The entire
+Only paths matching I<REGEX> are included in the search.  The entire
 path and filename are matched against I<REGEX>, and I<REGEX> is a
 Perl regular expression, not a shell glob.
+
+The options B<-i>, B<-w>, B<-v>, and B<-Q> do not apply to this I<REGEX>.
+
+=item B<-g I<REGEX>>
+
+Print files where the relative path + filename matches I<REGEX>. This option is
+a convenience shortcut for B<-f> B<-G I<REGEX>>.
+
+The options B<-i>, B<-w>, B<-v>, and B<-Q> do not apply to this I<REGEX>.
 
 =item B<--group>, B<--nogroup>
 
@@ -279,6 +311,17 @@ Print a short help statement.
 
 Ignore case in the search strings.
 
+This applies only to the PATTERN, not to the regexes given for the B<-g>
+and B<-G> options.
+
+=item B<--[no]ignore-dir=DIRNAME>
+
+Ignore directory (as CVS, .svn, etc are ignored). May be used multiple times
+to ignore multiple directories. For example, mason users may wish to include
+B<--ignore-dir=data>. The B<--noignore-dir> option allows users to search
+directories which would normally be ignored (perhaps to research the contents
+of F<.svn/props> directories).
+
 =item B<--line=I<NUM>>
 
 Only print line I<NUM> of each file. Multiple lines can be given with multiple
@@ -289,6 +332,16 @@ order given on the command line.
 =item B<-l>, B<--files-with-matches>
 
 Only print the filenames of matching files, instead of the matching text.
+
+=item B<--match I<REGEX>>
+
+Specify the I<REGEX> explicitly. This is helpful if you don't want to put the
+regex as your first argument, e.g. when executing multiple searches over the
+same set of files.
+
+    # search for foo and bar in given files
+    ack file1 t/file* --match foo
+    ack file1 t/file* --match bar
 
 =item B<-m=I<NUM>>, B<--max-count=I<NUM>>
 
@@ -332,7 +385,10 @@ helpful when dealing with filenames that contain whitespace, e.g.
 
 =item B<-Q>, B<--literal>
 
-Quote all metacharacters.  PATTERN is treated as a literal.
+Quote all metacharacters in PATTERN, it is treated as a literal.
+
+This applies only to the PATTERN, not to the regexes given for the B<-g>
+and B<-G> options.
 
 =item B<--rc=file>
 
@@ -379,11 +435,15 @@ L</"Defining your own types">.
 =item B<-u, --unrestricted>
 
 All files and directories (including blib/, core.*, ...) are searched,
-nothing is skipped.
+nothing is skipped. When both B<-u> and B<--ignore-dir> are used, the
+B<--ignore-dir> option has no effect.
 
 =item B<-v>, B<--invert-match>
 
 Invert match: select non-matching lines
+
+This applies only to the PATTERN, not to the regexes given for the B<-g>
+and B<-G> options.
 
 =item B<--version>
 
@@ -393,6 +453,9 @@ Display version and copyright information.
 
 Force PATTERN to match only whole words.  The PATTERN is wrapped with
 C<\b> metacharacters.
+
+This applies only to the PATTERN, not to the regexes given for the B<-g>
+and B<-G> options.
 
 =item B<-1>
 
@@ -418,6 +481,9 @@ might look like this:
 
 F<ack> looks in your home directory for the F<.ackrc>.  You can
 specify another location with the F<ACKRC> variable, below.
+
+If B<--noenv> is specified on the command line, the F<.ackrc> file
+is ignored.
 
 =head1 Defining your own types
 
@@ -463,7 +529,7 @@ The shebang line recognition of the types 'perl', 'ruby', 'php', 'python',
 active. However, the shebang line is only examined for files where the
 extension is not recognised. Therefore it is possible to say
 I<ack --type-set perl=.perl --type-set foo=.pl,.pm,.pod,.t --perl --nofoo> and
-only find your shiny new I<.perl> files (and all files with unrecognized extensiond
+only find your shiny new I<.perl> files (and all files with unrecognized extension
 and perl on the shebang line).
 
 =back
@@ -504,6 +570,9 @@ See B<ACK_COLOR_FILENAME> for the color specifications.
 
 =back
 
+Note: The above environment variables are ignored if B<--noenv> is
+specified on the command line.
+
 =head1 ACK & OTHER TOOLS
 
 =head2 Vim integration
@@ -539,8 +608,6 @@ ack users.
 
 There is a list of enhancements I want to make to F<ack> in the ack
 issues list at Google Code: L<http://code.google.com/p/ack/issues/list>
-Yes, we want to be able to specify our own filetypes, so you can
-say .snork files are recognized as Java, or whatever.
 
 Patches are always welcome, but patches with tests get the most
 attention.
@@ -582,6 +649,7 @@ L<http://ack.googlecode.com/svn/>
 How appropriate to have I<ack>nowledgements!
 
 Thanks to everyone who has contributed to ack in any way, including
+Matthew Wickline,
 David Dyck,
 Jason Porritt,
 Jjgod Jiang,

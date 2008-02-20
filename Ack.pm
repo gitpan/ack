@@ -9,14 +9,14 @@ App::Ack - A container for functions for the ack program
 
 =head1 VERSION
 
-Version 1.77_02
+Version 1.77_03
 
 =cut
 
 our $VERSION;
 our $COPYRIGHT;
 BEGIN {
-    $VERSION = '1.77_02';
+    $VERSION = '1.77_03';
     $COPYRIGHT = 'Copyright 2005-2008 Andy Lester, all rights reserved.';
 }
 
@@ -171,9 +171,11 @@ sub get_command_line_options {
         c                       => \$opt{count},
         'color!'                => \$opt{color},
         count                   => \$opt{count},
+        'env!'                  => sub { }, # ignore this option, it is handled beforehand 
         f                       => \$opt{f},
-        'g=s'                   => \$opt{g},
         'follow!'               => \$opt{follow},
+        'g=s'                   => sub { shift; $opt{G} = shift; $opt{f} = 1 },
+        'G=s'                   => \$opt{G},
         'group!'                => \$opt{group},
         'h|no-filename'         => \$opt{h},
         'H|with-filename'       => \$opt{H},
@@ -182,6 +184,7 @@ sub get_command_line_options {
         'l|files-with-matches'  => \$opt{l},
         'L|files-without-match' => sub { $opt{l} = $opt{v} = 1 },
         'm|max-count=i'         => \$opt{m},
+        'match=s'               => \$opt{regex},
         n                       => \$opt{n},
         o                       => sub { $opt{output} = '$&' },
         'output=s'              => \$opt{output},
@@ -193,6 +196,8 @@ sub get_command_line_options {
         'v|invert-match'        => \$opt{v},
         'w|word-regexp'         => \$opt{w},
 
+        'ignore-dir=s'   => sub { shift; my $dir = shift; $ignore_dirs{$dir} = '--ignore-dir' },
+        'noignore-dir=s' => sub { shift; my $dir = shift; delete $ignore_dirs{$dir} },
 
         'version'   => sub { print_version_statement(); exit 1; },
         'help|?:s'  => sub { shift; show_help(@_); exit; },
@@ -375,15 +380,15 @@ sub delete_type {
     }
 }
 
-=head2 skipdir_filter
+=head2 ignoredir_filter
 
 Standard filter to pass as a L<File::Next> descend_filter.  It
 returns true if the directory is any of the ones we know we want
-to skip.
+to ignore.
 
 =cut
 
-sub skipdir_filter {
+sub ignoredir_filter {
     return !exists $ignore_dirs{$_};
 }
 
@@ -395,7 +400,7 @@ F<foo.pod> could be "perl" or "parrot".
 The filetype will be C<undef> if we can't determine it.  This could
 be if the file doesn't exist, or it can't be read.
 
-It will be 'skipped' if it's something that ack should always ignore,
+It will be 'skipped' if it's something that ack should avoid searching,
 even under -a.
 
 =cut
@@ -457,7 +462,7 @@ sub filetypes {
 =head2 is_searchable( $filename )
 
 Returns true if the filename is one that we can search, and false
-if it's one that we should ignore like a coredump or a backup file.
+if it's one that we should skip like a coredump or a backup file.
 
 Recognized files:
   /~$/            - Unix backup files
@@ -574,15 +579,17 @@ If [FILES] is specified, then only those files/directories are checked.
 ack may also search STDIN, but only if no FILES are specified, or if
 one of FILES is "-".
 
-Default switches may be specified in ACK_OPTIONS environment variable.
+Default switches may be specified in ACK_OPTIONS environment variable or
+an .ackrc file. If you want no dependency on the environment, turn it
+off with --noenv.
 
 Example: ack -i select
 
 Searching:
-  -i, --ignore-case     Ignore case distinctions
+  -i, --ignore-case     Ignore case distinctions in PATTERN
   -v, --invert-match    Invert match: select non-matching lines
   -w, --word-regexp     Force PATTERN to match only whole words
-  -Q, --literal         Quote all metacharacters; expr is literal
+  -Q, --literal         Quote all metacharacters; PATTERN is literal
 
 Search output:
   --line=NUM            Only print line(s) NUM of each file
@@ -595,6 +602,7 @@ Search output:
   --passthru            Print all lines, whether matching or not
   --output=expr         Output the evaluation of expr for each line
                         (turns off text highlighting)
+  --match PATTERN       Specify PATTERN explicitly.
   -m, --max-count=NUM   Stop searching in each file after NUM matches
   -1                    Stop searching after one match of any kind
   -H, --with-filename   Print the filename for each match
@@ -624,13 +632,17 @@ Search output:
 File finding:
   -f                    Only print the files found, without searching.
                         The PATTERN must not be specified.
-  -g=REGEX              Same as -f, but only print files matching REGEX.
+  -g REGEX              Same as -f, but only print files matching REGEX.
   --sort-files          Sort the found files lexically.
 
 File inclusion/exclusion:
-  -a, --all-types       All file types searched; directories still skipped
+  -a, --all-types       All file types searched;
+                        Ignores CVS, .svn and other ignored directories
   -u, --unrestricted    All files and directories searched
+  --[no]ignore-dir=name Add/Remove directory from the list of ignored dirs
   -n                    No descending into subdirectories
+  -G REGEX              Only search files that match REGEX
+
   --perl                Include only Perl files.
   --type=perl           Include only Perl files.
   --noperl              Exclude Perl files.
@@ -846,7 +858,8 @@ sub close_file {
 
 Slurp up an entire file up to 100K, see if there are any matches
 in it, and if so, let us know so we can iterate over it directly.
-If it's bigger than 100K, we have to do the line-by-line, too.
+If it's bigger than 100K or the match is inverted, we have to do
+the line-by-line, too.
 
 =cut
 
@@ -854,6 +867,8 @@ sub needs_line_scan {
     my $fh = shift;
     my $regex = shift;
     my $opt = shift;
+
+    return 1 if $opt->{v};
 
     my $size = -s $fh;
 
@@ -958,6 +973,12 @@ sub search {
         } # not a match
 
         ++$nmatches;
+
+        # print an empty line as a divider before first line in each file (not before the first file)
+        if ( !$any_output && $opt->{show_filename} && $opt->{group} && defined( $context_overall_output_count ) ) {
+            print "\n";
+        }
+
         shift @lines if $has_lines;
 
         if ( $could_be_binary ) {
@@ -984,10 +1005,6 @@ sub search {
 
         last if $max && ( $nmatches >= $max ) && !$after;
     } # while
-
-    if ( $nmatches && $opt->{show_filename} && $opt->{group} ) {
-        print "\n";
-    }
 
     return $nmatches;
 }   # search()
@@ -1025,7 +1042,7 @@ sub print_match_or_context {
     for ( @_ ) {
         if ( $keep_context && !$output_func ) {
             if ( ( $last_output_line != $line_no - 1 ) &&
-                ( $any_output || ( !$group && $context_overall_output_count++ > 0 ) ) ) {
+                ( $any_output || ( !$group && defined( $context_overall_output_count ) ) ) ) {
                 print "--\n";
             }
             # to ensure separators between different files when --nogroup
@@ -1053,6 +1070,7 @@ sub print_match_or_context {
             print;
         }
         $any_output = 1;
+        ++$context_overall_output_count;
         ++$line_no;
     }
 
@@ -1137,17 +1155,11 @@ sub print_files {
     my $iter = shift;
     my $opt = shift;
 
-    my $regex;
-    if ( $opt->{g} ) {
-        $regex = $opt->{i} ? qr/$opt->{g}/i : qr/$opt->{g}/;
-    }
     my $ors = $opt->{print0} ? "\0" : "\n";
 
     while ( defined ( my $file = $iter->() ) ) {
-        if ( (not defined $regex) || ($file =~ m/$regex/o) ) {
-            print $file, $ors;
-            last if $opt->{1};
-        }
+        print $file, $ors;
+        last if $opt->{1};
     }
 
     return;

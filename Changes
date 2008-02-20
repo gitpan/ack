@@ -1,5 +1,41 @@
 Changelog for ack
 
+1.77_03     Wed Feb 20 11:16:43 CST 2008
+    [CHANGED FUNCTIONALITY]
+    ack -i -g=regex no longer treats the regex as case-insensitive.
+    This was changed for added consistency. Now -i, -w, -v and -Q
+    only apply to normal ack PATTERN while -g and -G are not affected
+    by these regex modifiers at all.
+
+    [ENHANCEMENTS]
+    Added option -G REGEX to search only files whose path+filename
+    matches REGEX. Thanks go to Michael Hendricks for providing a
+    patch!
+
+    Added option --[no]env to ignore all environment settings
+    including .ackrc.
+
+    Added a --[no]ignore-dir option, to include/exclude additional
+    directories. Many thanks for this patch go to Matthew Wickline!
+
+    Added option --match REGEX to specify a regex explicitly.
+
+    [FIXES]
+    Fixed bug with -v not finding all files correctly (introduced
+    with the performance optimizations in ack 1.75)
+
+    Removed spurious new line after last match in --group output.
+
+    Fixed typos in docs concerning context matching and removed
+    option --rc from docs, since it was never implemented.
+
+    [INTERNALS]
+    Fixed some cross-platform issues in the test cases.
+
+    Fixed test in run_ack for stderr output. This should no longer
+    report unexpected succeeds for TODO tests.
+
+
 1.77_02     Mon Jan 28 16:19:30 CST 2008
     [ENHANCEMENTS]
     Added .lsp for --lisp, .st for --smalltalk.

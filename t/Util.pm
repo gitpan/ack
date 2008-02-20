@@ -5,6 +5,14 @@ use IPC::Open3 qw( open3 );
 use Symbol qw(gensym);
 use IO::File ();
 
+sub is_win32 {
+    return $^O =~ /Win32/;
+}
+
+sub build_command_line {
+    return "$^X -T ./ack-standalone @_";
+}
+
 sub slurp {
     my $iter = shift;
 
@@ -19,19 +27,35 @@ sub slurp {
 sub run_ack {
     my @args = @_;
 
-    my ($stdout,$stderr) = run_ack_with_stderr( @args );
-    is( scalar @{$stderr}, 0, 'Should have no output to stderr' );
+    my @results;
 
-    return @{$stdout};
+    if ( $^O =~ /Win32/ ) {
+        my $cmd = build_command_line( @args );
+        @results = `$cmd`;
+        pass( q{We can't check that there was no output to stderr on Win32, so it's a freebie.} );
+    }
+    else {
+        my ($stdout,$stderr) = run_ack_with_stderr( @args );
+
+        is( scalar @{$stderr}, 0, 'Should have no output to stderr' )
+            or diag( join( "\n", "STDERR:", @{$stderr} ) );
+        @results = @{$stdout};
+    }
+
+    chomp @results;
+
+    return @results;
 }
 
 sub run_ack_with_stderr {
     my @args = @_;
 
+    die 'You cannot use run_ack_with_stderr on Win32' if is_win32;
+
     my @stdout;
     my @stderr;
 
-    my $cmd = "$^X -T ./ack-standalone @args";
+    my $cmd = build_command_line( @args );
     local *CATCHERR = IO::File->new_tmpfile;
     my $pid = open3( gensym, \*CATCHOUT, '>&CATCHERR', $cmd );
     while( <CATCHOUT> ) {
@@ -52,7 +76,8 @@ sub pipe_into_ack {
     my $input = shift;
     my @args = @_;
 
-    my $cmd = "$^X -pe1 $input | $^X -T ./ack-standalone @args";
+    my $cmd = build_command_line( @args );
+    $cmd = "$^X -pe1 $input | $cmd";
     my @results = `$cmd`;
     chomp @results;
 
