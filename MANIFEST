@@ -7,6 +7,7 @@ ack
 ack-help.txt
 ack-help-types.txt
 ack-standalone
+capture-stderr
 squash
 TODO
 
@@ -36,6 +37,7 @@ t/command-line-files.t
 t/context.t
 t/filetypes.t
 t/file-permission.t
+t/illegal-regex.t
 t/interesting.t
 t/longopts.t
 t/module.t
@@ -95,6 +97,7 @@ t/swamp/file.bar
 t/swamp/file.foo
 t/swamp/html.htm
 t/swamp/html.html
+t/swamp/incomplete-last-line.txt
 t/swamp/javascript.js
 t/swamp/moose-andy.jpg
 t/swamp/options.pl

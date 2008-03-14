@@ -3,12 +3,11 @@
 use warnings;
 use strict;
 
-our $VERSION   = '1.77_03';
+our $VERSION   = '1.77_04';
 # Check http://petdance.com/ack/ for updates
 
 # These are all our globals.
 
-use File::Next 0.40;
 use App::Ack ();
 
 MAIN: {
@@ -25,7 +24,7 @@ MAIN: {
         /^--th[pt]+t+$/ && App::Ack::_thpppt($_);
 
         # See if we want to ignore the environment. (Don't tell Al Gore.)
-        if ( /^--noenv$/ ) {
+        if ( $_ eq '--noenv' ) {
             delete @ENV{qw( ACK_OPTIONS ACKRC ACK_COLOR_MATCH ACK_COLOR_FILENAME ACK_SWITCHES )};
             $env_ok = 0;
         }
@@ -49,16 +48,7 @@ sub main {
     my %opt = App::Ack::get_command_line_options();
     if ( !-t STDIN && !eof(STDIN) ) {
         # We're going into filter mode
-        for ( qw( f g l ) ) {
-            $opt{$_} and App::Ack::die( "Can't use -$_ when acting as a filter." );
-        }
-        $opt{show_filename} = 0;
-        $opt{regex} = App::Ack::build_regex( defined $opt{regex} ? $opt{regex} : shift @ARGV, \%opt );
-        if ( my $nargs = @ARGV ) {
-            my $s = $nargs == 1 ? '' : 's';
-            App::Ack::warn( "Ignoring $nargs argument$s on the command-line while acting as a filter." );
-        }
-        App::Ack::search( \*STDIN, 0, '-', \%opt );
+        filter_mode( \%opt );
         exit 0;
     }
 
@@ -68,85 +58,40 @@ sub main {
         $opt{regex} = App::Ack::build_regex( defined $opt{regex} ? $opt{regex} : shift @ARGV, \%opt );
     }
 
-    my @what;
-    if ( @ARGV ) {
-        @what = $App::Ack::is_windows ? <@ARGV> : @ARGV;
+    my $what = App::Ack::get_starting_points( \@ARGV, \%opt );
+    my $iter = App::Ack::get_iterator( $what, \%opt );
 
-        # Show filenames unless we've specified one single file
-        $opt{show_filename} = (@what > 1) || (!-f $what[0]);
-    }
-    else {
-        @what = '.'; # Assume current directory
-        $opt{show_filename} = 1;
-    }
-
-    # Barf if the starting points don't exist
-    for my $start_point (@what) {
-        App::Ack::warn("$start_point: No such file or directory") unless -e $start_point;
-    }
-    # Starting points are always search, no matter what
-    my $is_starting_point = sub { return grep { $_ eq $_[0] } @what };
-
-    my $file_filter = $opt{u}   && defined $opt{G} ? sub { $File::Next::name =~ /$opt{G}/o }
-                    : $opt{all} && defined $opt{G} ? sub { $is_starting_point->( $File::Next::name ) || ( $File::Next::name =~ /$opt{G}/o && App::Ack::is_searchable( $File::Next::name ) ) }
-                    : $opt{u}                      ? sub {1}
-                    : $opt{all}                    ? sub { $is_starting_point->( $File::Next::name ) || App::Ack::is_searchable( $File::Next::name ) }
-                    : defined $opt{G}              ? sub { $is_starting_point->( $File::Next::name ) || ( $File::Next::name =~ /$opt{G}/o && App::Ack::is_interesting( @_ ) ) }
-                    :                                sub { $is_starting_point->( $File::Next::name ) || App::Ack::is_interesting( @_ ) }
-                    ;
-    my $iter =
-        File::Next::files( {
-            file_filter     => $file_filter,
-            descend_filter  => $opt{n}
-                                    ? sub {0}
-                                    : $opt{u}
-                                        ? sub {1}
-                                        : \&App::Ack::ignoredir_filter,
-            error_handler   => sub { my $msg = shift; App::Ack::warn( $msg ) },
-            sort_files      => $opt{sort_files},
-            follow_symlinks => $opt{follow},
-        }, @what );
+    # check that all regexes do compile fine
+    App::Ack::check_regex( $_ ) for @opt{ qw/regex G/ };
 
     App::Ack::filetype_setup();
     if ( $opt{f} ) {
         App::Ack::print_files( $iter, \%opt );
     }
     elsif ( $opt{l} || $opt{count} ) {
-        my $nmatches = 0;
-        while ( defined ( my $filename = $iter->() ) ) {
-            my ($fh) = App::Ack::open_file( $filename );
-            next unless defined $fh; # error while opening file
-            $nmatches += App::Ack::search_and_list( $fh, $filename, \%opt );
-            App::Ack::close_file( $fh, $filename );
-            last if $nmatches && $opt{1};
-        }
+        App::Ack::print_files_with_matches( $iter, \%opt );
     }
     else {
-        $opt{show_filename} = 0 if $opt{h};
-        $opt{show_filename} = 1 if $opt{H};
-
-        my $nmatches = 0;
-        while ( defined ( my $filename = $iter->() ) ) {
-            my ($fh,$could_be_binary) = App::Ack::open_file( $filename );
-            next unless defined $fh; # error while opening file
-            my $needs_line_scan;
-            if ( $opt{regex} && !$opt{passthru} ) {
-                $needs_line_scan = App::Ack::needs_line_scan( $fh, $opt{regex}, \%opt );
-                if ( $needs_line_scan ) {
-                    seek( $fh, 0, 0 );
-                }
-            }
-            else {
-                $needs_line_scan = 1;
-            }
-            if ( $needs_line_scan ) {
-                $nmatches += App::Ack::search( $fh, $could_be_binary, $filename, \%opt );
-            }
-            App::Ack::close_file( $fh, $filename );
-            last if $nmatches && $opt{1};
-        }
+        App::Ack::print_matches( $iter, \%opt );
     }
     exit 0;
+}
+
+sub filter_mode {
+    my $opt = shift;
+
+    for ( qw( f g l ) ) {
+        $opt->{$_} and App::Ack::die( "Can't use -$_ when acting as a filter." );
+    }
+    $opt->{show_filename} = 0;
+    $opt->{regex} = App::Ack::build_regex( defined $opt->{regex} ? $opt->{regex} : shift @ARGV, $opt );
+    if ( my $nargs = @ARGV ) {
+        my $s = $nargs == 1 ? '' : 's';
+        App::Ack::warn( "Ignoring $nargs argument$s on the command-line while acting as a filter." );
+    }
+    App::Ack::search( \*STDIN, 0, '-', $opt );
+
+    return;
 }
 
 =head1 NAME
@@ -381,7 +326,7 @@ are output separated with a null byte instead of the usual newline. This is
 helpful when dealing with filenames that contain whitespace, e.g.
 
     # remove all files of type html
-    ack -f --html --print0 | xargs -0 rm -f 
+    ack -f --html --print0 | xargs -0 rm -f
 
 =item B<-Q>, B<--literal>
 
@@ -430,7 +375,7 @@ existing) type TYPE. See also L</"Defining your own types">.
 
 Files with the given EXTENSION(s) are recognized as being of type
 TYPE. This replaces an existing definition for type TYPE.  See also
-L</"Defining your own types">. 
+L</"Defining your own types">.
 
 =item B<-u, --unrestricted>
 
@@ -649,6 +594,8 @@ L<http://ack.googlecode.com/svn/>
 How appropriate to have I<ack>nowledgements!
 
 Thanks to everyone who has contributed to ack in any way, including
+Jan Dubois,
+Christopher J. Madsen,
 Matthew Wickline,
 David Dyck,
 Jason Porritt,

@@ -3,8 +3,9 @@
 use warnings;
 use strict;
 
-use Test::More tests => 22;
+use Test::More tests => 24;
 
+use File::Spec;
 use lib 't';
 use Util;
 
@@ -28,7 +29,7 @@ my @std_ignore = qw( RCS CVS );
 
 my( @expected, @results, $test_description );
 
-sub settup_assertion_that_these_options_will_ignore_those_directories {
+sub set_up_assertion_that_these_options_will_ignore_those_directories {
     my( $options, $ignored_directories, $optional_test_description ) = @_;
     $test_description = $optional_test_description || join( ' ', @$options );
 
@@ -36,11 +37,14 @@ sub settup_assertion_that_these_options_will_ignore_those_directories {
     @expected = grep { ! m{/(?:$filter)/} } @files_mentioning_apples;
 
     @results = run_ack( @$options, '--noenv', '-la', 'apple', 't/swamp' );
-    @results = grep { ! m{\Q/.svn/} } @results; # ignore .svn directories
+
+    # ignore everything in .svn directories
+    my $svn_regex = quotemeta File::Spec->catfile( '', '.svn', '' ); # the respective filesystem equivalent of '/.svn/'
+    @results = grep { ! m/$svn_regex/ } @results;
 }
 
 FILES_HAVE_BEEN_SET_UP_AS_EXPECTED: {
-    settup_assertion_that_these_options_will_ignore_those_directories(
+    set_up_assertion_that_these_options_will_ignore_those_directories(
         [ '-u',  ],
         [        ],
         'test data contents are as expected',
@@ -49,15 +53,23 @@ FILES_HAVE_BEEN_SET_UP_AS_EXPECTED: {
 }
 
 DASH_IGNORE_DIR: {
-    settup_assertion_that_these_options_will_ignore_those_directories(
+    set_up_assertion_that_these_options_will_ignore_those_directories(
         [ '--ignore-dir=subdir',  ],
         [ @std_ignore, 'subdir',  ],
     );
     sets_match( \@results, \@expected, $test_description );
 }
 
+DASH_IGNORE_DIR_WITH_SLASH: {
+    set_up_assertion_that_these_options_will_ignore_those_directories(
+        [ '--ignore-dir=subdir/',  ],
+        [ @std_ignore, 'subdir',  ],
+    );
+    sets_match( \@results, \@expected, $test_description );
+}
+
 DASH_IGNORE_DIR_MULTIPLE_TIMES: {
-    settup_assertion_that_these_options_will_ignore_those_directories(
+    set_up_assertion_that_these_options_will_ignore_those_directories(
         [ '--ignore-dir=subdir', '--ignore-dir=another_subdir', ],
         [ @std_ignore, 'subdir',              'another_subdir', ],
     );
@@ -65,7 +77,7 @@ DASH_IGNORE_DIR_MULTIPLE_TIMES: {
 }
 
 DASH_NOIGNORE_DIR: {
-    settup_assertion_that_these_options_will_ignore_those_directories(
+    set_up_assertion_that_these_options_will_ignore_those_directories(
         [ '--noignore-dir=CVS', ],
         [ 'RCS',                ],
     );
@@ -73,7 +85,7 @@ DASH_NOIGNORE_DIR: {
 }
 
 DASH_NOIGNORE_DIR_MULTIPLE_TIMES: {
-    settup_assertion_that_these_options_will_ignore_those_directories(
+    set_up_assertion_that_these_options_will_ignore_those_directories(
         [ '--noignore-dir=CVS', '--noignore-dir=RCS', ],
         [                                             ],
     );
@@ -81,7 +93,7 @@ DASH_NOIGNORE_DIR_MULTIPLE_TIMES: {
 }
 
 DASH_IGNORE_DIR_WITH_DASH_NOIGNORE_DIR: {
-    settup_assertion_that_these_options_will_ignore_those_directories(
+    set_up_assertion_that_these_options_will_ignore_those_directories(
         [ '--noignore-dir=CVS', '--ignore-dir=subdir', ],
         [ 'RCS',                             'subdir', ],
     );
@@ -89,25 +101,25 @@ DASH_IGNORE_DIR_WITH_DASH_NOIGNORE_DIR: {
 }
 
 LAST_ONE_LISTED_WINS: {
-    settup_assertion_that_these_options_will_ignore_those_directories(
+    set_up_assertion_that_these_options_will_ignore_those_directories(
         [ '--noignore-dir=CVS', '--ignore-dir=CVS', ],
         [ @std_ignore,                              ],
     );
     sets_match( \@results, \@expected, $test_description );
 
-    settup_assertion_that_these_options_will_ignore_those_directories(
+    set_up_assertion_that_these_options_will_ignore_those_directories(
         [ '--noignore-dir=CVS', '--ignore-dir=CVS', '--noignore-dir=CVS', ],
         [ 'RCS',                                                          ],
     );
     sets_match( \@results, \@expected, $test_description );
 
-    settup_assertion_that_these_options_will_ignore_those_directories(
+    set_up_assertion_that_these_options_will_ignore_those_directories(
         [ '--ignore-dir=subdir', '--noignore-dir=subdir', ],
         [ @std_ignore,                                    ],
     );
     sets_match( \@results, \@expected, $test_description );
 
-    settup_assertion_that_these_options_will_ignore_those_directories(
+    set_up_assertion_that_these_options_will_ignore_those_directories(
         [ '--ignore-dir=subdir', '--noignore-dir=subdir', '--ignore-dir=subdir', ],
         [ @std_ignore,                                                 'subdir', ],
     );
@@ -115,7 +127,7 @@ LAST_ONE_LISTED_WINS: {
 }
 
 DASH_U_BEATS_THE_PANTS_OFF_IGNORE_DIR_ANY_DAY_OF_THE_WEEK: {
-    settup_assertion_that_these_options_will_ignore_those_directories(
+    set_up_assertion_that_these_options_will_ignore_those_directories(
         [ '-u', '--ignore-dir=subdir', ],
         [                              ],
     );

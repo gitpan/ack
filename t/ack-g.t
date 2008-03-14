@@ -9,8 +9,7 @@ delete @ENV{qw( ACK_OPTIONS ACKRC )};
 use lib 't';
 use Util;
 
-SKIP: { # NO_STARTDIR
-    skip q{Can't be tested under Win32}, 3 if is_win32();
+NO_STARTDIR: {
     my $regex = 'non';
 
     my @files = qw( t/foo/non-existent );
@@ -100,7 +99,7 @@ CASE_INSENSITIVE: {
     my @expected = qw(
         t/swamp/pipe-stress-freaks.F
     );
-    my $regex = '\(\?i:PIPE\)';
+    my $regex = '(?i:PIPE)';
 
     my @files = qw( . );
     my @args = ( '-g', $regex );
@@ -224,14 +223,14 @@ UNRESTRICTED_AND_DASH_G_INTERACTION: {
         't/swamp/options.pl.bak',
     );
     my $content_regex = 'file';
-    my $file_regex = 'swamp[\\/][^\\/]+\.pl';
+    my $file_regex = 'swamp[\\\\/][^\\\\/]+\.pl';
 
     my @files = qw( t/swamp );
     my @args = ( '-u', '-G', $file_regex, $content_regex, '-l' );
     my @results = run_ack( @args, @files );
 
     sets_match( \@results, \@expected, "Looking for $content_regex in unrestricted files matching $file_regex" );
-} 
+}
 
 QUOTEMETA_FILE_NOT: {
     # -Q does nothing for -g regex

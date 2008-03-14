@@ -100,9 +100,13 @@ smallprof: all
 	$(PERL) -d:SmallProf $(PROF_ARGS) >> /dev/null 2>&1
 	sort -k 2nr,2 smallprof.out | less
 
+nytprof: all
+	$(PERL) -d:NYTProf $(PROF_ARGS) >> /dev/null 2>&1
+	nytprofhtml
+
 $(STANDALONE) : $(ACK) $(APP_ACK_PM) squash Makefile
 	$(PERL) squash ack File::Next $(APP_ACK_PM) > $(STANDALONE)
-	$(CHMOD) +x $(STANDALONE)
+	$(CHMOD) 0755 $(STANDALONE)
 	$(PERL_T) -c $(STANDALONE)
 
 $(ACK_HELP) : $(STANDALONE)

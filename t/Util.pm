@@ -1,16 +1,29 @@
 
 use File::Next ();
 use App::Ack ();
-use IPC::Open3 qw( open3 );
-use Symbol qw(gensym);
-use IO::File ();
+
+# capture stderr output into this file
+my $catcherr_file = 'stderr.log';
 
 sub is_win32 {
     return $^O =~ /Win32/;
 }
 
+# capture-stderr is executing ack-standalone and storing the stderr output in
+# $catcherr_file in a portable way.
+#
+# The quoting of command line arguments depends on the OS
 sub build_command_line {
-    return "$^X -T ./ack-standalone @_";
+    my @args = @_;
+
+    if ( is_win32() ) {
+        for ( @args ) { s/"/\\"/g; $_ = qq("$_"); }
+    }
+    else {
+        @args = map { quotemeta $_ } @args;
+    }
+
+    return "$^X -T ./capture-stderr $catcherr_file ./ack-standalone @args";
 }
 
 sub slurp {
@@ -27,45 +40,34 @@ sub slurp {
 sub run_ack {
     my @args = @_;
 
-    my @results;
+    my ($stdout, $stderr) = run_ack_with_stderr( @args );
 
-    if ( $^O =~ /Win32/ ) {
-        my $cmd = build_command_line( @args );
-        @results = `$cmd`;
-        pass( q{We can't check that there was no output to stderr on Win32, so it's a freebie.} );
+    if ( $TODO ) {
+        fail( q{Automatically fail stderr check for TODO tests.} );
     }
     else {
-        my ($stdout,$stderr) = run_ack_with_stderr( @args );
-
         is( scalar @{$stderr}, 0, 'Should have no output to stderr' )
             or diag( join( "\n", "STDERR:", @{$stderr} ) );
-        @results = @{$stdout};
     }
 
-    chomp @results;
-
-    return @results;
+    return @{$stdout};
 }
 
 sub run_ack_with_stderr {
     my @args = @_;
 
-    die 'You cannot use run_ack_with_stderr on Win32' if is_win32;
-
     my @stdout;
     my @stderr;
 
     my $cmd = build_command_line( @args );
-    local *CATCHERR = IO::File->new_tmpfile;
-    my $pid = open3( gensym, \*CATCHOUT, '>&CATCHERR', $cmd );
-    while( <CATCHOUT> ) {
-        push( @stdout, $_ );
-    }
-    waitpid($pid, 0);
-    seek CATCHERR, 0, 0;
+    @stdout = `$cmd`;
+
+    open( CATCHERR, '<', $catcherr_file );
     while( <CATCHERR> ) {
         push( @stderr, $_ );
     }
+    close CATCHERR;
+    unlink $catcherr_file;
 
     chomp @stdout;
     chomp @stderr;
@@ -80,6 +82,8 @@ sub pipe_into_ack {
     $cmd = "$^X -pe1 $input | $cmd";
     my @results = `$cmd`;
     chomp @results;
+
+    unlink $catcherr_file;
 
     return @results;
 }
@@ -106,6 +110,19 @@ sub lists_match {
     }
 }
 
+sub ack_lists_match {
+    my $args     = shift;
+    my $expected = shift;
+    my $message  = shift;
+    my @args     = @{$args};
+
+    my @results = run_ack( @args );
+    my $ok = lists_match( \@results, $expected, $message );
+    $ok or diag( join( ' ', '$ ack', @args ) );
+
+    return $ok;
+}
+
 # Use this one if you don't care about order of the lines
 sub sets_match {
     my @actual = @{+shift};
@@ -115,6 +132,20 @@ sub sets_match {
     local $Test::Builder::Level = $Test::Builder::Level + 1; ## no critic
     return lists_match( [sort @actual], [sort @expected], $msg );
 }
+
+sub ack_sets_match {
+    my $args     = shift;
+    my $expected = shift;
+    my $message  = shift;
+    my @args     = @{$args};
+
+    my @results = run_ack( @args );
+    my $ok = sets_match( \@results, $expected, $message );
+    $ok or diag( join( ' ', '$ ack', @args ) );
+
+    return $ok;
+}
+
 
 sub is_filetype {
     my $filename = shift;
