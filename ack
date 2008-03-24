@@ -3,7 +3,7 @@
 use warnings;
 use strict;
 
-our $VERSION   = '1.77_04';
+our $VERSION = '1.78';
 # Check http://petdance.com/ack/ for updates
 
 # These are all our globals.
@@ -45,35 +45,38 @@ MAIN: {
 }
 
 sub main {
-    my %opt = App::Ack::get_command_line_options();
+    my $opt = App::Ack::get_command_line_options();
     if ( !-t STDIN && !eof(STDIN) ) {
         # We're going into filter mode
-        filter_mode( \%opt );
+        filter_mode( $opt );
         exit 0;
     }
 
-    my $file_matching = $opt{f} || $opt{lines};
+    my $file_matching = $opt->{f} || $opt->{lines};
     if ( !$file_matching ) {
         @ARGV or App::Ack::die( 'No regular expression found.' );
-        $opt{regex} = App::Ack::build_regex( defined $opt{regex} ? $opt{regex} : shift @ARGV, \%opt );
+        $opt->{regex} = App::Ack::build_regex( defined $opt->{regex} ? $opt->{regex} : shift @ARGV, $opt );
     }
 
-    my $what = App::Ack::get_starting_points( \@ARGV, \%opt );
-    my $iter = App::Ack::get_iterator( $what, \%opt );
+    my $what = App::Ack::get_starting_points( \@ARGV, $opt );
+    my $iter = App::Ack::get_iterator( $what, $opt );
 
     # check that all regexes do compile fine
-    App::Ack::check_regex( $_ ) for @opt{ qw/regex G/ };
+    App::Ack::check_regex( $_ ) for ( $opt->{regex}, $opt->{G} );
+
+    App::Ack::set_up_pager( $opt->{pager} ) if defined $opt->{pager};
 
     App::Ack::filetype_setup();
-    if ( $opt{f} ) {
-        App::Ack::print_files( $iter, \%opt );
+    if ( $opt->{f} ) {
+        App::Ack::print_files( $iter, $opt );
     }
-    elsif ( $opt{l} || $opt{count} ) {
-        App::Ack::print_files_with_matches( $iter, \%opt );
+    elsif ( $opt->{l} || $opt->{count} ) {
+        App::Ack::print_files_with_matches( $iter, $opt );
     }
     else {
-        App::Ack::print_matches( $iter, \%opt );
+        App::Ack::print_matches( $iter, $opt );
     }
+    close $App::Ack::fh;
     exit 0;
 }
 
@@ -310,6 +313,14 @@ highlighting)
 Output the evaluation of I<expr> for each line (turns off text
 highlighting)
 
+=item B<--pager=I<program>>
+
+Direct ack's output through I<program>.  This can also be specified
+via the C<ACK_PAGER> environment variable.
+
+Using --pager does not suppress grouping and coloring like piping
+output on the command-line does.
+
 =item B<--passthru>
 
 Prints all lines, whether or not they match the expression.  Highlighting
@@ -424,6 +435,12 @@ might look like this:
     # Always color, even if piping to a filter
     --color
 
+    # Use "less -r" as my pager
+    --pager=less -r
+
+Note that arguments with spaces in them do not need to be quoted,
+as they are not interpreted by the shell.
+
 F<ack> looks in your home directory for the F<.ackrc>.  You can
 specify another location with the F<ACKRC> variable, below.
 
@@ -512,6 +529,14 @@ Specifies the color of the matching text when printed in B<--color>
 mode.  By default, it's "black on_yellow".
 
 See B<ACK_COLOR_FILENAME> for the color specifications.
+
+=item ACK_PAGER
+
+Specifies a pager program, such as C<more>, C<less> or C<most>, to which
+ack will send its output.
+
+Using C<ACK_PAGER> does not suppress grouping and coloring like
+piping output on the command-line does.
 
 =back
 
@@ -607,7 +632,7 @@ Kevin Riggle,
 Ori Avtalion,
 Torsten Blix,
 Nigel Metheringham,
-Gabor Szabo,
+Gábor Szabó,
 Tod Hagan,
 Michael Hendricks,
 Ævar Arnfjörð Bjarmason,

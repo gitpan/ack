@@ -3,24 +3,12 @@
 use warnings;
 use strict;
 
-use Test::More tests => 8;
-delete @ENV{qw( ACK_OPTIONS ACKRC )};
+use Test::More tests => 6;
 
 use lib 't';
 use Util;
 
-SINGLE_TEXT_MATCH: {
-    my @expected = (
-        'And I said: "My name is Sue! How do you do! Now you gonna die!"',
-    );
-
-    my @files = qw( t/text );
-    local $ENV{ACK_OPTIONS} = '-1'; # set the parameter via the options
-    my @args = qw( Sue! -h --text );
-    my @results = run_ack( @args, @files );
-
-    sets_match( \@results, \@expected, 'Looking for first instance of Sue!' );
-}
+prep_environment();
 
 SINGLE_TEXT_MATCH_ENV: {
     my @expected = (

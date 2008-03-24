@@ -8,9 +8,11 @@ Note that some extensions may appear in multiple types.  For example,
 .pod files are both Perl and Parrot.
 
     --[no]actionscript .as .mxml
-    --[no]asm          .s
+    --[no]asm          .asm .s
+    --[no]batch        .bat .cmd
     --[no]binary       Binary files, as defined by Perl's -B op (default: off)
     --[no]cc           .c .h .xs
+    --[no]cfmx         .cfc .cfm .cfml
     --[no]cpp          .cpp .cc .m .hpp .hh .h
     --[no]csharp       .cs
     --[no]css          .css
@@ -40,7 +42,7 @@ Note that some extensions may appear in multiple types.  For example,
     --[no]skipped      Files, but not directories, normally skipped by ack (default: off)
     --[no]smalltalk    .st
     --[no]sql          .sql .ctl
-    --[no]tcl          .tcl
+    --[no]tcl          .tcl .itcl .itk
     --[no]tex          .tex .cls .sty
     --[no]text         Text files, as defined by Perl's -T op (default: off)
     --[no]tt           .tt .tt2 .ttml

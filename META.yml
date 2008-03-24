@@ -1,8 +1,8 @@
 --- #YAML:1.0
 name:                ack
-version:             1.77_04
+version:             1.78
 abstract:            A grep-like program specifically for large source trees
-license:             ~
+license:             perl
 generated_by:        ExtUtils::MakeMaker version 6.36
 distribution_type:   module
 requires:     

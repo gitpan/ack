@@ -2,6 +2,10 @@
 use File::Next ();
 use App::Ack ();
 
+sub prep_environment {
+    delete @ENV{qw( ACK_OPTIONS ACKRC ACK_PAGER )};
+}
+
 # capture stderr output into this file
 my $catcherr_file = 'stderr.log';
 
@@ -17,7 +21,11 @@ sub build_command_line {
     my @args = @_;
 
     if ( is_win32() ) {
-        for ( @args ) { s/"/\\"/g; $_ = qq("$_"); }
+        for ( @args ) {
+            s/(\\+)$/$1$1/;     # Double all trailing backslashes
+            s/"/\\"/g;          # Backslash all quotes
+            $_ = qq("$_");
+        }
     }
     else {
         @args = map { quotemeta $_ } @args;
@@ -58,6 +66,10 @@ sub run_ack_with_stderr {
 
     my @stdout;
     my @stderr;
+
+    if ( !grep { $_ =~ /^--(no)?env$/ } @args ) {
+        unshift( @args, '--noenv' );
+    }
 
     my $cmd = build_command_line( @args );
     @stdout = `$cmd`;
