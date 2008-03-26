@@ -3,7 +3,7 @@
 use warnings;
 use strict;
 
-our $VERSION = '1.78';
+our $VERSION = '1.80';
 # Check http://petdance.com/ack/ for updates
 
 # These are all our globals.
@@ -25,7 +25,7 @@ MAIN: {
 
         # See if we want to ignore the environment. (Don't tell Al Gore.)
         if ( $_ eq '--noenv' ) {
-            delete @ENV{qw( ACK_OPTIONS ACKRC ACK_COLOR_MATCH ACK_COLOR_FILENAME ACK_SWITCHES )};
+            delete @ENV{qw( ACK_OPTIONS ACKRC ACK_COLOR_MATCH ACK_COLOR_FILENAME ACK_SWITCHES ACK_PAGER )};
             $env_ok = 0;
         }
     }
@@ -48,7 +48,16 @@ sub main {
     my $opt = App::Ack::get_command_line_options();
     if ( !-t STDIN && !eof(STDIN) ) {
         # We're going into filter mode
-        filter_mode( $opt );
+        for ( qw( f g l ) ) {
+            $opt->{$_} and App::Ack::die( "Can't use -$_ when acting as a filter." );
+        }
+        $opt->{show_filename} = 0;
+        $opt->{regex} = App::Ack::build_regex( defined $opt->{regex} ? $opt->{regex} : shift @ARGV, $opt );
+        if ( my $nargs = @ARGV ) {
+            my $s = $nargs == 1 ? '' : 's';
+            App::Ack::warn( "Ignoring $nargs argument$s on the command-line while acting as a filter." );
+        }
+        App::Ack::search( \*STDIN, 0, '-', $opt );
         exit 0;
     }
 
@@ -63,10 +72,9 @@ sub main {
 
     # check that all regexes do compile fine
     App::Ack::check_regex( $_ ) for ( $opt->{regex}, $opt->{G} );
+    App::Ack::filetype_setup();
 
     App::Ack::set_up_pager( $opt->{pager} ) if defined $opt->{pager};
-
-    App::Ack::filetype_setup();
     if ( $opt->{f} ) {
         App::Ack::print_files( $iter, $opt );
     }
@@ -78,23 +86,6 @@ sub main {
     }
     close $App::Ack::fh;
     exit 0;
-}
-
-sub filter_mode {
-    my $opt = shift;
-
-    for ( qw( f g l ) ) {
-        $opt->{$_} and App::Ack::die( "Can't use -$_ when acting as a filter." );
-    }
-    $opt->{show_filename} = 0;
-    $opt->{regex} = App::Ack::build_regex( defined $opt->{regex} ? $opt->{regex} : shift @ARGV, $opt );
-    if ( my $nargs = @ARGV ) {
-        my $s = $nargs == 1 ? '' : 's';
-        App::Ack::warn( "Ignoring $nargs argument$s on the command-line while acting as a filter." );
-    }
-    App::Ack::search( \*STDIN, 0, '-', $opt );
-
-    return;
 }
 
 =head1 NAME
@@ -619,6 +610,7 @@ L<http://ack.googlecode.com/svn/>
 How appropriate to have I<ack>nowledgements!
 
 Thanks to everyone who has contributed to ack in any way, including
+Michael Schwern,
 Jan Dubois,
 Christopher J. Madsen,
 Matthew Wickline,

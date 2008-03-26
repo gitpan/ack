@@ -1,9 +1,11 @@
 --- #YAML:1.0
 name:                ack
-version:             1.78
+version:             1.80
 abstract:            A grep-like program specifically for large source trees
 license:             perl
-generated_by:        ExtUtils::MakeMaker version 6.36
+author:              
+    - Andy Lester <andy@petdance.com>
+generated_by:        ExtUtils::MakeMaker version 6.42
 distribution_type:   module
 requires:     
     File::Basename:                0
@@ -13,13 +15,5 @@ requires:
     Test::Harness:                 2.5
     Test::More:                    0
 meta-spec:
-    url:     http://module-build.sourceforge.net/META-spec-v1.2.html
-    version: 1.2
-author:
-    - Andy Lester <andy@petdance.com>
-resources:
-    homepage: http://petdance.com/ack/
-    bugtracker: http://code.google.com/p/ack/issues/list
-    license: http://dev.perl.org/licenses/
-    Repository: http://code.google.com/p/ack/source
-    MailingList: http://groups.google.com/group/ack-users
+    url:     http://module-build.sourceforge.net/META-spec-v1.3.html
+    version: 1.3
