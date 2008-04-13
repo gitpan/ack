@@ -11,14 +11,14 @@ App::Ack - A container for functions for the ack program
 
 =head1 VERSION
 
-Version 1.80
+Version 1.82
 
 =cut
 
 our $VERSION;
 our $COPYRIGHT;
 BEGIN {
-    $VERSION = '1.80';
+    $VERSION = '1.82';
     $COPYRIGHT = 'Copyright 2005-2008 Andy Lester, all rights reserved.';
 }
 
@@ -73,7 +73,7 @@ BEGIN {
         binary      => q{Binary files, as defined by Perl's -B op (default: off)},
         cc          => [qw( c h xs )],
         cfmx        => [qw( cfc cfm cfml )],
-        cpp         => [qw( cpp cc m hpp hh h )],
+        cpp         => [qw( cpp cc cxx m hpp hh h hxx )],
         csharp      => [qw( cs )],
         css         => [qw( css )],
         elisp       => [qw( el )],
@@ -96,9 +96,9 @@ BEGIN {
         php         => [qw( php phpt php3 php4 php5 )],
         plone       => [qw( pt cpt metadata cpy py )],
         python      => [qw( py )],
-        ruby        => [qw( rb rhtml rjs rxml )],
+        ruby        => [qw( rb rhtml rjs rxml erb )],
         scheme      => [qw( scm )],
-        shell       => [qw( sh bash csh ksh zsh )],
+        shell       => [qw( sh bash csh tcsh ksh zsh )],
         skipped     => q{Files, but not directories, normally skipped by ack (default: off)},
         smalltalk   => [qw( st )],
         sql         => [qw( sql ctl )],
@@ -680,6 +680,10 @@ Search output:
                         only works with -f, -g, -l, -L or -c.
 
 File presentation:
+  --pager=COMMAND       Pipes all ack output through COMMAND.
+                        Ignored if output is redirected.
+  --nopager             Do not send output through a pager.  Cancels any
+                        setting in ~/.ackrc or ACK_PAGER.
   --[no]heading         Print a filename heading above each file's results.
                         (default: on when used interactively)
   --[no]break           Print a break between results from different files.
@@ -1426,12 +1430,13 @@ sub get_iterator {
     # Starting points are always search, no matter what
     my $is_starting_point = sub { return grep { $_ eq $_[0] } @{$what} };
 
+    my $g_regex = defined $opt->{G} ? qr/$opt->{G}/ : undef;
     my $file_filter
-        = $opt->{u}   && defined $opt->{G} ? sub { $File::Next::name =~ /$opt->{G}/o }
-        : $opt->{all} && defined $opt->{G} ? sub { $is_starting_point->( $File::Next::name ) || ( $File::Next::name =~ /$opt->{G}/o && is_searchable( $File::Next::name ) ) }
+        = $opt->{u}   && defined $opt->{G} ? sub { $File::Next::name =~ /$g_regex/ }
+        : $opt->{all} && defined $opt->{G} ? sub { $is_starting_point->( $File::Next::name ) || ( $File::Next::name =~ /$g_regex/ && is_searchable( $File::Next::name ) ) }
         : $opt->{u}                        ? sub {1}
         : $opt->{all}                      ? sub { $is_starting_point->( $File::Next::name ) || is_searchable( $File::Next::name ) }
-        : defined $opt->{G}                ? sub { $is_starting_point->( $File::Next::name ) || ( $File::Next::name =~ /$opt->{G}/o && is_interesting( @_ ) ) }
+        : defined $opt->{G}                ? sub { $is_starting_point->( $File::Next::name ) || ( $File::Next::name =~ /$g_regex/ && is_interesting( @_ ) ) }
         :                                    sub { $is_starting_point->( $File::Next::name ) || is_interesting( @_ ) }
         ;
     my $iter =
@@ -1449,12 +1454,11 @@ sub get_iterator {
     return $iter;
 }
 
-=head2 set_up_pager( $command )
-
-=cut
 
 sub set_up_pager {
     my $command = shift;
+
+    return unless $to_screen;
 
     my $pager;
     if ( not open( $pager, '|-', $command ) ) {
