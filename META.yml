@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name:                ack
-version:             1.86
+version:             1.88
 abstract:            A grep-like program specifically for large source trees
 license:             perl
 author:              
