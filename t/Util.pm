@@ -24,7 +24,7 @@ sub build_command_line {
         for ( @args ) {
             s/(\\+)$/$1$1/;     # Double all trailing backslashes
             s/"/\\"/g;          # Backslash all quotes
-            $_ = qq("$_");
+            $_ = qq{"$_"};
         }
     }
     else {
@@ -47,7 +47,7 @@ sub slurp {
 
 sub run_ack {
     my @args = @_;
-	
+
     my ($stdout, $stderr) = run_ack_with_stderr( @args );
 
     if ( $TODO ) {
@@ -58,13 +58,13 @@ sub run_ack {
             or diag( join( "\n", "STDERR:", @{$stderr} ) );
     }
 
-    return @{$stdout};
+    return wantarray ? @{$stdout} : join( "\n", @{$stdout} );
 }
 
-{ # scope for $AckReturnCode;
+{ # scope for $ack_return_code;
 
 # capture returncode
-our $AckReturnCode;
+our $ack_return_code;
 
 sub run_ack_with_stderr {
     my @args = @_;
@@ -77,17 +77,17 @@ sub run_ack_with_stderr {
     }
 
     my $cmd = build_command_line( @args );
-	
-    @stdout = `$cmd`;
-    my ($sig,$core,$rc)=( ($? & 127),  ($? & 128) , ($? >> 8) );
-    $AckReturnCode=$rc;
-	## XXX what do do with $core or $sig?
 
-    open( CATCHERR, '<', $catcherr_file );
-    while( <CATCHERR> ) {
+    @stdout = `$cmd`;
+    my ($sig,$core,$rc) = (($? & 127),  ($? & 128) , ($? >> 8));
+    $ack_return_code = $rc;
+    ## XXX what do do with $core or $sig?
+
+    open( my $fh, '<', $catcherr_file ) or die $!;
+    while ( <$fh> ) {
         push( @stderr, $_ );
     }
-    close CATCHERR;
+    close $fh or die $!;
     unlink $catcherr_file;
 
     chomp @stdout;
@@ -95,11 +95,11 @@ sub run_ack_with_stderr {
     return ( \@stdout, \@stderr );
 }
 
-sub get_rc{
-  return $AckReturnCode;
+sub get_rc {
+    return $ack_return_code;
 }
 
-} # scope for $AckReturnCode
+} # scope for $ack_return_code
 
 sub pipe_into_ack {
     my $input = shift;

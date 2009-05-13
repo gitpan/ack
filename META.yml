@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name:                ack
-version:             1.88
+version:             1.89_02
 abstract:            A grep-like program specifically for large source trees
 license:             perl
 author:              
@@ -17,9 +17,3 @@ requires:
 meta-spec:
     url:     http://module-build.sourceforge.net/META-spec-v1.3.html
     version: 1.3
-resources:
-    homepage: http://petdance.com/ack/
-    bugtracker: http://code.google.com/p/ack/issues/list
-    license: http://dev.perl.org/licenses/
-    Repository: http://code.google.com/p/ack/source
-    MailingList: http://groups.google.com/group/ack-users

@@ -13,14 +13,14 @@ App::Ack - A container for functions for the ack program
 
 =head1 VERSION
 
-Version 1.88
+Version 1.89_02
 
 =cut
 
 our $VERSION;
 our $COPYRIGHT;
 BEGIN {
-    $VERSION = '1.88';
+    $VERSION = '1.89_02';
     $COPYRIGHT = 'Copyright 2005-2009 Andy Lester, all rights reserved.';
 }
 
@@ -36,10 +36,12 @@ our %type_wanted;
 our %mappings;
 our %ignore_dirs;
 
+our $input_from_pipe;
+our $output_to_pipe;
+
 our $dir_sep_chars;
 our $is_cygwin;
 our $is_windows;
-our $to_screen;
 
 use File::Spec ();
 use File::Glob ':glob';
@@ -101,7 +103,7 @@ BEGIN {
         python      => [qw( py )],
         rake        => q{Rakefiles},
         ruby        => [qw( rb rhtml rjs rxml erb rake )],
-        scheme      => [qw( scm )],
+        scheme      => [qw( scm ss )],
         shell       => [qw( sh bash csh tcsh ksh zsh )],
         skipped     => q{Files, but not directories, normally skipped by ack (default: off)},
         smalltalk   => [qw( st )],
@@ -124,10 +126,13 @@ BEGIN {
         }
     }
 
-    $is_cygwin      = ($^O eq 'cygwin');
-    $is_windows     = ($^O =~ /MSWin32/);
-    $to_screen      = -t *STDOUT;
-    $dir_sep_chars  = $is_windows ? quotemeta( '\\/' ) : quotemeta( File::Spec->catfile( '', '' ) );
+    # These have to be checked before any filehandle diddling.
+    $output_to_pipe  = not -t *STDOUT;
+    $input_from_pipe = -p STDIN;
+
+    $is_cygwin       = ($^O eq 'cygwin');
+    $is_windows      = ($^O =~ /MSWin32/);
+    $dir_sep_chars   = $is_windows ? quotemeta( '\\/' ) : quotemeta( File::Spec->catfile( '', '' ) );
 }
 
 =head1 SYNOPSIS
@@ -189,6 +194,9 @@ sub get_command_line_options {
         'break!'                => \$opt{break},
         c                       => \$opt{count},
         'color|colour!'         => \$opt{color},
+        'color-match=s'         => \$ENV{ACK_COLOR_MATCH},
+        'color-filename=s'      => \$ENV{ACK_COLOR_FILENAME},
+        'column!'               => \$opt{column},
         count                   => \$opt{count},
         'env!'                  => sub { }, # ignore this option, it is handled beforehand
         f                       => \$opt{f},
@@ -260,6 +268,7 @@ sub get_command_line_options {
     $parser->getoptions( %{$getopt_specs} ) or
         App::Ack::die( 'See ack --help or ack --man for options.' );
 
+    my $to_screen = not output_to_pipe();
     my %defaults = (
         all            => 0,
         color          => $to_screen,
@@ -464,8 +473,9 @@ sub filetypes {
     my $basename = $filename;
     $basename =~ s{.*[$dir_sep_chars]}{};
 
-    return ('make',TEXT)        if lc $basename eq 'makefile';
-    return ('rake','ruby',TEXT) if lc $basename eq 'rakefile';
+    my $lc_basename = lc $basename;
+    return ('make',TEXT)        if $lc_basename eq 'makefile';
+    return ('rake','ruby',TEXT) if $lc_basename eq 'rakefile';
 
     # If there's an extension, look it up
     if ( $filename =~ m{\.([^\.$dir_sep_chars]+)$}o ) {
@@ -694,6 +704,7 @@ Search output:
   -H, --with-filename   Print the filename for each match
   -h, --no-filename     Suppress the prefixing filename on output
   -c, --count           Show number of lines matching per file
+  --column              Show the column number of the first match
 
   -A NUM, --after-context=NUM
                         Print NUM lines of trailing context after matching
@@ -721,6 +732,8 @@ File presentation:
   --[no]color           Highlight the matching text (default: on unless
                         output is redirected, or on Windows)
   --[no]colour          Same as --[no]color
+  --color-filename=COLOR
+  --color-match=COLOR   Set the color for matches and filenames.
   --flush               Flush output immediately, even when ack is used
                         non-interactively (when output goes to a pipe or
                         file).
@@ -838,14 +851,24 @@ Returns the version information for ack.
 =cut
 
 sub get_version_statement {
+    require Config;
+
     my $copyright = get_copyright();
+    my $this_perl = $Config::Config{perlpath};
+    if ($^O ne 'VMS') {
+        my $ext = $Config::Config{_exe};
+        $this_perl .= $ext unless $this_perl =~ m/$ext$/i;
+    }
+
     return <<"END_OF_VERSION";
 ack $VERSION
+Running under Perl $] at $this_perl
 
 $copyright
 
-This program is free software; you can redistribute it and/or modify it
-under the same terms as Perl itself.
+This program is free software; you can redistribute it and/or modify
+it under the terms of either: the GNU General Public License as
+published by the Free Software Foundation; or the Artistic License.
 END_OF_VERSION
 }
 
@@ -922,6 +945,7 @@ sub print_blank_line        { App::Ack::print( "\n" ) }
 sub print_separator         { App::Ack::print( "--\n" ) }
 sub print_filename          { App::Ack::print( $_[0], $_[1] ) }
 sub print_line_no           { App::Ack::print( $_[0], $_[1] ) }
+sub print_column_no         { App::Ack::print( $_[0], $_[1] ) }
 sub print_count {
     my $filename = shift;
     my $nmatches = shift;
@@ -1076,9 +1100,10 @@ sub print_match_or_context {
     my $is_match = shift; # is there a match on the line?
     my $line_no  = shift;
 
-    my $color = $opt->{color};
-    my $heading = $opt->{heading};
+    my $color         = $opt->{color};
+    my $heading       = $opt->{heading};
     my $show_filename = $opt->{show_filename};
+    my $show_column   = $opt->{column};
 
     if ( $show_filename ) {
         if ( not defined $display_filename ) {
@@ -1116,6 +1141,8 @@ sub print_match_or_context {
             }
         }
         else {
+            my $col = $-[0] + 1;
+
             if ( $color && $is_match && $regex &&
                  s/$regex/Term::ANSIColor::colored( substr($_, $-[0], $+[0] - $-[0]), $ENV{ACK_COLOR_MATCH} )/eg ) {
                 # At the end of the line reset the color and remove newline
@@ -1124,6 +1151,9 @@ sub print_match_or_context {
             else {
                 # remove any kind of newline at the end of the line
                 s/[\r\n]*\z//;
+            }
+            if ( $show_column ) {
+                App::Ack::print_column_no( $col, $sep );
             }
             App::Ack::print($_ . "\n");
         }
@@ -1261,7 +1291,8 @@ sub print_matches {
     my $nmatches = 0;
     while ( defined ( my $filename = $iter->() ) ) {
         my $repo;
-        if ( $filename =~ /\.tar\.gz$/ ) {
+        my $tarballs_work = 0;
+        if ( $tarballs_work && $filename =~ /\.tar\.gz$/ ) {
             App::Ack::die( 'Not working here yet' );
             require App::Ack::Repository::Tar; # XXX Error checking
             $repo = App::Ack::Repository::Tar->new( $filename );
@@ -1438,7 +1469,7 @@ sub get_iterator {
 sub set_up_pager {
     my $command = shift;
 
-    return unless $to_screen;
+    return unless App::Ack::output_to_pipe();
 
     my $pager;
     if ( not open( $pager, '|-', $command ) ) {
@@ -1448,6 +1479,28 @@ sub set_up_pager {
 
     return;
 }
+
+=head2 input_from_pipe()
+
+Returns true if ack's input is coming from a pipe.
+
+=cut
+
+sub input_from_pipe {
+    return $input_from_pipe;
+}
+
+
+=head2 output_to_pipe()
+
+Returns true if ack's input is coming from a pipe.
+
+=cut
+
+sub output_to_pipe {
+    return $output_to_pipe;
+}
+
 
 =head1 COPYRIGHT & LICENSE
 

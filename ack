@@ -12,8 +12,8 @@
 use warnings;
 use strict;
 
-our $VERSION = '1.88';
-# Check http://petdance.com/ack/ for updates
+our $VERSION = '1.89_02';
+# Check http://betterthangrep.com/ for updates
 
 # These are all our globals.
 
@@ -58,7 +58,7 @@ sub main {
 
     $| = 1 if $opt->{flush}; # Unbuffer the output if flush mode
 
-    if ( -p STDIN ) { # Check to see if it's a pipe
+    if ( App::Ack::input_from_pipe() ) {
         # We're going into filter mode
         for ( qw( f g l ) ) {
             $opt->{$_} and App::Ack::die( "Can't use -$_ when acting as a filter." );
@@ -212,6 +212,19 @@ the color.  This is on by default unless the output is redirected.
 On Windows, this option is off by default unless the
 L<Win32::Console::ANSI> module is installed or the C<ACK_PAGER_COLOR>
 environment variable is used.
+
+=item B<--color-filename=I<color>>
+
+Sets the color to be used for filenames.
+
+=item B<--color-match=I<color>>
+
+Sets the color to be used for matches.
+
+=item B<--column>
+
+Show the column number of the first match.  This is helpful for editors
+that can place your cursor at a given position.
 
 =item B<--env>, B<--noenv>
 
@@ -573,10 +586,14 @@ Underline and underscore are equivalent, as are clear and reset.
 The color alone sets the foreground color, and on_color sets the
 background color.
 
+This option can also be set with B<--color-filename>.
+
 =item ACK_COLOR_MATCH
 
 Specifies the color of the matching text when printed in B<--color>
 mode.  By default, it's "black on_yellow".
+
+This option can also be set with B<--color-match>.
 
 See B<ACK_COLOR_FILENAME> for the color specifications.
 
@@ -706,6 +723,20 @@ the previous five lines from the log in each case.
 Join the ack-users mailing list.  Send me your tips and I may add
 them here.
 
+=head1 FAQ
+
+=head2 Wouldn't it be great if F<ack> did search & replace?
+
+No, ack will always be read-only.  Perl has a perfectly good way
+to do search & replace in files, using the C<-i>, C<-p> and C<-n>
+switches.
+
+You can certainly use ack to select your files to update.  For
+example, to change all "foo" to "bar" in all PHP files, you can do
+this form the Unix shell:
+
+    $ perl -i -p -e's/foo/bar/g' $(ack -f --php)
+
 =head1 AUTHOR
 
 Andy Lester, C<< <andy at petdance.com> >>
@@ -736,7 +767,7 @@ Support for and information about F<ack> can be found at:
 
 =item * The ack homepage
 
-L<http://petdance.com/ack/>
+L<http://betterthangrep.com/>
 
 =item * The ack issues list at Google Code
 
@@ -765,6 +796,7 @@ L<http://ack.googlecode.com/svn/>
 How appropriate to have I<ack>nowledgements!
 
 Thanks to everyone who has contributed to ack in any way, including
+Eric Van Dewoestine.
 Sitaram Chamarty,
 Adam James,
 Richard Carlsson,
@@ -829,7 +861,7 @@ it under the terms of either:
 Software Foundation; either version 1, or (at your option) any later
 version, or
 
-=item * the "Artistic License" which comes with Perl 5.
+=item * the Artistic License version 2.0.
 
 =back
 
@@ -1013,7 +1045,7 @@ use strict;
 our $VERSION;
 our $COPYRIGHT;
 BEGIN {
-    $VERSION = '1.88';
+    $VERSION = '1.89_02';
     $COPYRIGHT = 'Copyright 2005-2009 Andy Lester, all rights reserved.';
 }
 
@@ -1029,10 +1061,12 @@ our %type_wanted;
 our %mappings;
 our %ignore_dirs;
 
+our $input_from_pipe;
+our $output_to_pipe;
+
 our $dir_sep_chars;
 our $is_cygwin;
 our $is_windows;
-our $to_screen;
 
 use File::Spec ();
 use File::Glob ':glob';
@@ -1094,7 +1128,7 @@ BEGIN {
         python      => [qw( py )],
         rake        => q{Rakefiles},
         ruby        => [qw( rb rhtml rjs rxml erb rake )],
-        scheme      => [qw( scm )],
+        scheme      => [qw( scm ss )],
         shell       => [qw( sh bash csh tcsh ksh zsh )],
         skipped     => q{Files, but not directories, normally skipped by ack (default: off)},
         smalltalk   => [qw( st )],
@@ -1117,10 +1151,13 @@ BEGIN {
         }
     }
 
-    $is_cygwin      = ($^O eq 'cygwin');
-    $is_windows     = ($^O =~ /MSWin32/);
-    $to_screen      = -t *STDOUT;
-    $dir_sep_chars  = $is_windows ? quotemeta( '\\/' ) : quotemeta( File::Spec->catfile( '', '' ) );
+    # These have to be checked before any filehandle diddling.
+    $output_to_pipe  = not -t *STDOUT;
+    $input_from_pipe = -p STDIN;
+
+    $is_cygwin       = ($^O eq 'cygwin');
+    $is_windows      = ($^O =~ /MSWin32/);
+    $dir_sep_chars   = $is_windows ? quotemeta( '\\/' ) : quotemeta( File::Spec->catfile( '', '' ) );
 }
 
 
@@ -1164,6 +1201,9 @@ sub get_command_line_options {
         'break!'                => \$opt{break},
         c                       => \$opt{count},
         'color|colour!'         => \$opt{color},
+        'color-match=s'         => \$ENV{ACK_COLOR_MATCH},
+        'color-filename=s'      => \$ENV{ACK_COLOR_FILENAME},
+        'column!'               => \$opt{column},
         count                   => \$opt{count},
         'env!'                  => sub { }, # ignore this option, it is handled beforehand
         f                       => \$opt{f},
@@ -1235,6 +1275,7 @@ sub get_command_line_options {
     $parser->getoptions( %{$getopt_specs} ) or
         App::Ack::die( 'See ack --help or ack --man for options.' );
 
+    my $to_screen = not output_to_pipe();
     my %defaults = (
         all            => 0,
         color          => $to_screen,
@@ -1401,8 +1442,9 @@ sub filetypes {
     my $basename = $filename;
     $basename =~ s{.*[$dir_sep_chars]}{};
 
-    return ('make',TEXT)        if lc $basename eq 'makefile';
-    return ('rake','ruby',TEXT) if lc $basename eq 'rakefile';
+    my $lc_basename = lc $basename;
+    return ('make',TEXT)        if $lc_basename eq 'makefile';
+    return ('rake','ruby',TEXT) if $lc_basename eq 'rakefile';
 
     # If there's an extension, look it up
     if ( $filename =~ m{\.([^\.$dir_sep_chars]+)$}o ) {
@@ -1586,6 +1628,7 @@ Search output:
   -H, --with-filename   Print the filename for each match
   -h, --no-filename     Suppress the prefixing filename on output
   -c, --count           Show number of lines matching per file
+  --column              Show the column number of the first match
 
   -A NUM, --after-context=NUM
                         Print NUM lines of trailing context after matching
@@ -1613,6 +1656,8 @@ File presentation:
   --[no]color           Highlight the matching text (default: on unless
                         output is redirected, or on Windows)
   --[no]colour          Same as --[no]color
+  --color-filename=COLOR
+  --color-match=COLOR   Set the color for matches and filenames.
   --flush               Flush output immediately, even when ack is used
                         non-interactively (when output goes to a pipe or
                         file).
@@ -1720,14 +1765,24 @@ sub _listify {
 
 
 sub get_version_statement {
+    require Config;
+
     my $copyright = get_copyright();
+    my $this_perl = $Config::Config{perlpath};
+    if ($^O ne 'VMS') {
+        my $ext = $Config::Config{_exe};
+        $this_perl .= $ext unless $this_perl =~ m/$ext$/i;
+    }
+
     return <<"END_OF_VERSION";
 ack $VERSION
+Running under Perl $] at $this_perl
 
 $copyright
 
-This program is free software; you can redistribute it and/or modify it
-under the same terms as Perl itself.
+This program is free software; you can redistribute it and/or modify
+it under the terms of either: the GNU General Public License as
+published by the Free Software Foundation; or the Artistic License.
 END_OF_VERSION
 }
 
@@ -1784,6 +1839,7 @@ sub print_blank_line        { App::Ack::print( "\n" ) }
 sub print_separator         { App::Ack::print( "--\n" ) }
 sub print_filename          { App::Ack::print( $_[0], $_[1] ) }
 sub print_line_no           { App::Ack::print( $_[0], $_[1] ) }
+sub print_column_no         { App::Ack::print( $_[0], $_[1] ) }
 sub print_count {
     my $filename = shift;
     my $nmatches = shift;
@@ -1926,9 +1982,10 @@ sub print_match_or_context {
     my $is_match = shift; # is there a match on the line?
     my $line_no  = shift;
 
-    my $color = $opt->{color};
-    my $heading = $opt->{heading};
+    my $color         = $opt->{color};
+    my $heading       = $opt->{heading};
     my $show_filename = $opt->{show_filename};
+    my $show_column   = $opt->{column};
 
     if ( $show_filename ) {
         if ( not defined $display_filename ) {
@@ -1966,6 +2023,8 @@ sub print_match_or_context {
             }
         }
         else {
+            my $col = $-[0] + 1;
+
             if ( $color && $is_match && $regex &&
                  s/$regex/Term::ANSIColor::colored( substr($_, $-[0], $+[0] - $-[0]), $ENV{ACK_COLOR_MATCH} )/eg ) {
                 # At the end of the line reset the color and remove newline
@@ -1974,6 +2033,9 @@ sub print_match_or_context {
             else {
                 # remove any kind of newline at the end of the line
                 s/[\r\n]*\z//;
+            }
+            if ( $show_column ) {
+                App::Ack::print_column_no( $col, $sep );
             }
             App::Ack::print($_ . "\n");
         }
@@ -2081,7 +2143,8 @@ sub print_matches {
     my $nmatches = 0;
     while ( defined ( my $filename = $iter->() ) ) {
         my $repo;
-        if ( $filename =~ /\.tar\.gz$/ ) {
+        my $tarballs_work = 0;
+        if ( $tarballs_work && $filename =~ /\.tar\.gz$/ ) {
             App::Ack::die( 'Not working here yet' );
             require App::Ack::Repository::Tar; # XXX Error checking
             $repo = App::Ack::Repository::Tar->new( $filename );
@@ -2238,7 +2301,7 @@ sub get_iterator {
 sub set_up_pager {
     my $command = shift;
 
-    return unless $to_screen;
+    return unless App::Ack::output_to_pipe();
 
     my $pager;
     if ( not open( $pager, '|-', $command ) ) {
@@ -2248,6 +2311,18 @@ sub set_up_pager {
 
     return;
 }
+
+
+sub input_from_pipe {
+    return $input_from_pipe;
+}
+
+
+
+sub output_to_pipe {
+    return $output_to_pipe;
+}
+
 
 
 1; # End of App::Ack

@@ -7,7 +7,6 @@ Resource.pm
 Changes
 MANIFEST
 Makefile.PL
-META.yml
 README
 ack
 ack-base
@@ -25,6 +24,7 @@ t/ack-a.t
 t/ack-binary.t
 t/ack-c.t
 t/ack-color.t
+t/ack-column.t
 t/ack-env.t
 t/ack-g.t
 t/ack-group.t
@@ -121,6 +121,7 @@ t/swamp/perl.cgi
 t/swamp/perl.pl
 t/swamp/perl.pm
 t/swamp/perl.pod
+t/swamp/perl.tar.gz
 t/swamp/Rakefile
 t/swamp/sample.rake
 t/swamp/solution8.tar
@@ -130,3 +131,4 @@ t/text/freedom-of-choice.txt
 t/text/me-and-bobbie-mcgee.txt
 t/text/science-of-myth.txt
 t/text/shut-up-be-happy.txt
+META.yml                                 Module meta-data (added by MakeMaker)

@@ -37,6 +37,7 @@ Search output:
   -H, --with-filename   Print the filename for each match
   -h, --no-filename     Suppress the prefixing filename on output
   -c, --count           Show number of lines matching per file
+  --column              Show the column number of the first match
 
   -A NUM, --after-context=NUM
                         Print NUM lines of trailing context after matching
@@ -64,6 +65,8 @@ File presentation:
   --[no]color           Highlight the matching text (default: on unless
                         output is redirected, or on Windows)
   --[no]colour          Same as --[no]color
+  --color-filename=COLOR
+  --color-match=COLOR   Set the color for matches and filenames.
   --flush               Flush output immediately, even when ack is used
                         non-interactively (when output goes to a pipe or
                         file).
@@ -117,4 +120,4 @@ Miscellaneous:
 
 Exit status is 0 if match, 1 if no match.
 
-This is version 1.88 of ack.
+This is version 1.89_02 of ack.
