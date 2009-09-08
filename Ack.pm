@@ -13,14 +13,14 @@ App::Ack - A container for functions for the ack program
 
 =head1 VERSION
 
-Version 1.89_02
+Version 1.90
 
 =cut
 
 our $VERSION;
 our $COPYRIGHT;
 BEGIN {
-    $VERSION = '1.89_02';
+    $VERSION = '1.90';
     $COPYRIGHT = 'Copyright 2005-2009 Andy Lester, all rights reserved.';
 }
 
@@ -72,6 +72,7 @@ BEGIN {
 
     %mappings = (
         actionscript => [qw( as mxml )],
+        ada         => [qw( ada adb ads )],
         asm         => [qw( asm s )],
         batch       => [qw( bat cmd )],
         binary      => q{Binary files, as defined by Perl's -B op (default: off)},
@@ -211,10 +212,10 @@ sub get_command_line_options {
         'i|ignore-case'         => \$opt{i},
         'lines=s'               => sub { shift; my $val = shift; push @{$opt{lines}}, $val },
         'l|files-with-matches'  => \$opt{l},
-        'L|files-without-match' => sub { $opt{l} = $opt{v} = 1 },
+        'L|files-without-matches' => sub { $opt{l} = $opt{v} = 1 },
         'm|max-count=i'         => \$opt{m},
         'match=s'               => \$opt{regex},
-        n                       => \$opt{n},
+        'n|no-recurse'          => \$opt{n},
         o                       => sub { $opt{output} = '$&' },
         'output=s'              => \$opt{output},
         'pager=s'               => \$opt{pager},
@@ -222,6 +223,7 @@ sub get_command_line_options {
         'passthru'              => \$opt{passthru},
         'print0'                => \$opt{print0},
         'Q|literal'             => \$opt{Q},
+        'r|R|recurse'           => sub {},
         'smart-case!'           => \$opt{smart_case},
         'sort-files'            => \$opt{sort_files},
         'u|unrestricted'        => \$opt{u},
@@ -691,8 +693,8 @@ Search output:
   --line=NUM            Only print line(s) NUM of each file
   -l, --files-with-matches
                         Only print filenames containing matches
-  -L, --files-without-match
-                        Only print filenames with no match
+  -L, --files-without-matches
+                        Only print filenames with no matches
   -o                    Show only the part of a line matching PATTERN
                         (turns off text highlighting)
   --passthru            Print all lines, whether matching or not
@@ -719,8 +721,8 @@ Search output:
                         only works with -f, -g, -l, -L or -c.
 
 File presentation:
-  --pager=COMMAND       Pipes all ack output through COMMAND.
-                        Ignored if output is redirected.
+  --pager=COMMAND       Pipes all ack output through COMMAND.  For example,
+                        --pager="less -R".  Ignored if output is redirected.
   --nopager             Do not send output through a pager.  Cancels any
                         setting in ~/.ackrc, ACK_PAGER or ACK_PAGER_COLOR.
   --[no]heading         Print a filename heading above each file's results.
@@ -749,7 +751,8 @@ File inclusion/exclusion:
                         Ignores CVS, .svn and other ignored directories
   -u, --unrestricted    All files and directories searched
   --[no]ignore-dir=name Add/Remove directory from the list of ignored dirs
-  -n                    No descending into subdirectories
+  -r, -R, --recurse     Recurse into subdirectories (ack's default behavior)
+  -n, --no-recurse      No descending into subdirectories
   -G REGEX              Only search files that match REGEX
 
   --perl                Include only Perl files.
@@ -859,10 +862,11 @@ sub get_version_statement {
         my $ext = $Config::Config{_exe};
         $this_perl .= $ext unless $this_perl =~ m/$ext$/i;
     }
+    my $ver = sprintf( '%vd', $^V );
 
     return <<"END_OF_VERSION";
 ack $VERSION
-Running under Perl $] at $this_perl
+Running under Perl $ver at $this_perl
 
 $copyright
 
@@ -1034,7 +1038,7 @@ sub search_resource {
 
             if ( $keep_context ) {
                 if ( $after ) {
-                    print_match_or_context( $opt, 0, $., $_ );
+                    print_match_or_context( $opt, 0, $., $-[0], $+[0], $_ );
                     $after--;
                 }
                 elsif ( $before_context ) {
@@ -1069,7 +1073,7 @@ sub search_resource {
         }
         if ( $keep_context ) {
             if ( @before ) {
-                print_match_or_context( $opt, 0, $before_starts_at_line, @before );
+                print_match_or_context( $opt, 0, $before_starts_at_line, $-[0], $+[0], @before );
                 @before = ();
                 $before_starts_at_line = 0;
             }
@@ -1080,7 +1084,7 @@ sub search_resource {
                 $after = $after_context;
             }
         }
-        print_match_or_context( $opt, 1, $., $_ );
+        print_match_or_context( $opt, 1, $., $-[0], $+[0], $_ );
 
         last if $max && ( $nmatches >= $max ) && !$after;
     } # while
@@ -1089,16 +1093,18 @@ sub search_resource {
 }   # search_resource()
 
 
-=head2 print_match_or_context( $opt, $is_match, $starting_line_no, @lines )
+=head2 print_match_or_context( $opt, $is_match, $starting_line_no, $match_start, $match_end, @lines )
 
 Prints out a matching line or a line of context around a match.
 
 =cut
 
 sub print_match_or_context {
-    my $opt      = shift; # opts array
-    my $is_match = shift; # is there a match on the line?
-    my $line_no  = shift;
+    my $opt         = shift; # opts array
+    my $is_match    = shift; # is there a match on the line?
+    my $line_no     = shift;
+    my $match_start = shift;
+    my $match_end   = shift;
 
     my $color         = $opt->{color};
     my $heading       = $opt->{heading};
@@ -1141,8 +1147,6 @@ sub print_match_or_context {
             }
         }
         else {
-            my $col = $-[0] + 1;
-
             if ( $color && $is_match && $regex &&
                  s/$regex/Term::ANSIColor::colored( substr($_, $-[0], $+[0] - $-[0]), $ENV{ACK_COLOR_MATCH} )/eg ) {
                 # At the end of the line reset the color and remove newline
@@ -1153,7 +1157,7 @@ sub print_match_or_context {
                 s/[\r\n]*\z//;
             }
             if ( $show_column ) {
-                App::Ack::print_column_no( $col, $sep );
+                App::Ack::print_column_no( $match_start+1, $sep );
             }
             App::Ack::print($_ . "\n");
         }

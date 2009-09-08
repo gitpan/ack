@@ -31,7 +31,13 @@ sub build_command_line {
         @args = map { quotemeta $_ } @args;
     }
 
-    return "$^X -T ./capture-stderr $catcherr_file ./ack @args";
+    return "$^X -T ./capture-stderr $catcherr_file @args";
+}
+
+sub build_ack_command_line {
+    my @args = @_;
+
+    return build_command_line( './ack', @args );
 }
 
 sub slurp {
@@ -54,7 +60,7 @@ sub run_ack {
         fail( q{Automatically fail stderr check for TODO tests.} );
     }
     else {
-        is( scalar @{$stderr}, 0, 'Should have no output to stderr' )
+        is( scalar @{$stderr}, 0, "Should have no output to stderr: ack @args" )
             or diag( join( "\n", "STDERR:", @{$stderr} ) );
     }
 
@@ -72,11 +78,12 @@ sub run_ack_with_stderr {
     my @stdout;
     my @stderr;
 
+    # The --noenv makes sure we don't pull in anything from the user.
     if ( !grep { $_ =~ /^--(no)?env$/ } @args ) {
         unshift( @args, '--noenv' );
     }
 
-    my $cmd = build_command_line( @args );
+    my $cmd = build_ack_command_line( @args );
 
     @stdout = `$cmd`;
     my ($sig,$core,$rc) = (($? & 127),  ($? & 128) , ($? >> 8));
@@ -105,7 +112,7 @@ sub pipe_into_ack {
     my $input = shift;
     my @args = @_;
 
-    my $cmd = build_command_line( @args );
+    my $cmd = build_ack_command_line( @args );
     $cmd = "$^X -pe1 $input | $cmd";
     my @results = `$cmd`;
     chomp @results;

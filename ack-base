@@ -3,7 +3,7 @@
 use warnings;
 use strict;
 
-our $VERSION = '1.89_02';
+our $VERSION = '1.90';
 # Check http://betterthangrep.com/ for updates
 
 # These are all our globals.
@@ -689,7 +689,11 @@ list of all the Perl files in a tree, ideal for sending into F<xargs>.
 For example:
 
     # Change all "this" to "that" in all Perl files in a tree.
-    ack -f --perl | perl -p -i -e's/this/that/g'
+    ack -f --perl | xargs perl -p -i -e's/this/that/g'
+
+or if you prefer:
+
+    perl -p -i -e's/this/thatg/' $(ack -f --perl)
 
 =head2 Use F<-Q> when in doubt about metacharacters
 
@@ -788,7 +792,11 @@ L<http://ack.googlecode.com/svn/>
 How appropriate to have I<ack>nowledgements!
 
 Thanks to everyone who has contributed to ack in any way, including
-Eric Van Dewoestine.
+Ryan Niebur,
+Kent Fredric,
+Mike Morearty,
+Ingmar Vanhassel,
+Eric Van Dewoestine,
 Sitaram Chamarty,
 Adam James,
 Richard Carlsson,
@@ -809,10 +817,10 @@ Kevin Riggle,
 Ori Avtalion,
 Torsten Blix,
 Nigel Metheringham,
-Gábor Szabó,
+GE<aacute>bor SzabE<oacute>,
 Tod Hagan,
 Michael Hendricks,
-Ævar Arnfjörð Bjarmason,
+E<AElig>var ArnfjE<ouml>rE<eth> Bjarmason,
 Piers Cawley,
 Stephen Steneker,
 Elias Lutfallah,
@@ -827,11 +835,11 @@ Elliot Shank,
 Merijn Broeren,
 Uwe Voelker,
 Rick Scott,
-Ask Bjørn Hansen,
+Ask BjE<oslash>rn Hansen,
 Jerry Gay,
 Will Coleda,
 Mike O'Regan,
-Slaven Rezić,
+Slaven ReziE<0x107>,
 Mark Stosberg,
 David Alan Pisoni,
 Adriano Ferreira,
@@ -842,7 +850,7 @@ and Pete Krawczyk.
 
 =head1 COPYRIGHT & LICENSE
 
-Copyright 2005-2009 Andy Lester, all rights reserved.
+Copyright 2005-2009 Andy Lester.
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of either:
