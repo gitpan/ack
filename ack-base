@@ -3,7 +3,7 @@
 use warnings;
 use strict;
 
-our $VERSION = '1.90';
+our $VERSION = '1.92';
 # Check http://betterthangrep.com/ for updates
 
 # These are all our globals.
@@ -84,7 +84,7 @@ sub main {
 
     App::Ack::set_up_pager( $opt->{pager} ) if defined $opt->{pager};
     if ( $opt->{f} ) {
-        App::Ack::print_files( $iter, $opt );
+        $nmatches = App::Ack::print_files( $iter, $opt );
     }
     elsif ( $opt->{l} || $opt->{count} ) {
         $nmatches = App::Ack::print_files_with_matches( $iter, $opt );
@@ -135,7 +135,7 @@ including:
 
 =over 4
 
-=item * Backup files: Files ending with F<~>, or F<#*#>
+=item * Backup files: Files matching F<#*#> or ending with F<~>.
 
 =item * Coredumps: Files matching F<core.\d+>
 
@@ -652,8 +652,8 @@ no match is found.
 
 The I<grep> code 2 for errors is not used.
 
-0 is returned if C<-f> or C<-g> are specified, irrespective of
-number of files found.
+If C<-f> or C<-g> are specified, then 0 is returned if at least one
+file is found.  If no files are found, then 1 is returned.
 
 =cut
 
@@ -721,6 +721,31 @@ them here.
 
 =head1 FAQ
 
+=head2 Why isn't ack finding a match in (some file)?
+
+Probably because it's of a type that ack doesn't recognize.
+
+ack's searching behavior is driven by filetype.  If ack doesn't
+know what kind of file it is, ack ignores it.
+
+If you want ack to search files that it doesn't recognize, use the
+C<-a> switch.
+
+If you want ack to search every file, even ones that it always
+ignores like coredumps and backup files, use the C<-u> switch.
+
+=head2 Why does ack ignore unknown files by default?
+
+ack is designed by a programmer, for programmers, for searching
+large trees of code.  Most codebases have a lot files in them which
+aren't source files (like compiled object files, source control
+metadata, etc), and grep wastes a lot of time searching through all
+of those as well and returning matches from those files.
+
+That's why ack's behavior of not searching things it doesn't recognize
+is one of its greatest strengths: the speed you get from only
+searching the things that you want to be looking at.
+
 =head2 Wouldn't it be great if F<ack> did search & replace?
 
 No, ack will always be read-only.  Perl has a perfectly good way
@@ -733,6 +758,25 @@ this form the Unix shell:
 
     $ perl -i -p -e's/foo/bar/g' $(ack -f --php)
 
+=head2 Can you make ack recognize F<.xyz> files?
+
+That's an enhancement.  Please see the section in the manual about
+enhancements.
+
+=head2 There's already a program/package called ack.
+
+Yes, I know.
+
+=head2 Why is it called ack if it's called ack-grep?
+
+The name of the program is "ack".  Some packagers have called it
+"ack-grep" when creating packages because there's already a package
+out there called "ack" that has nothing to do with this ack.
+
+I suggest you rename your ack-grep install to "ack" because one of
+the crucial benefits of ack is having a name that's so short and
+simple to type.
+
 =head1 AUTHOR
 
 Andy Lester, C<< <andy at petdance.com> >>
@@ -740,17 +784,17 @@ Andy Lester, C<< <andy at petdance.com> >>
 =head1 BUGS
 
 Please report any bugs or feature requests to the issues list at
-Google Code: L<http://code.google.com/p/ack/issues/list>
+Github: L<http://github.com/petdance/ack/issues>
 
 =head1 ENHANCEMENTS
 
 All enhancement requests MUST first be posted to the ack-users
 mailing list at L<http://groups.google.com/group/ack-users>.  I
 will not consider a request without it first getting seen by other
-ack users.
+ack users.  This includes requests for new filetypes.
 
 There is a list of enhancements I want to make to F<ack> in the ack
-issues list at Google Code: L<http://code.google.com/p/ack/issues/list>
+issues list at Github: L<http://github.com/petdance/ack/issues>
 
 Patches are always welcome, but patches with tests get the most
 attention.
@@ -765,9 +809,9 @@ Support for and information about F<ack> can be found at:
 
 L<http://betterthangrep.com/>
 
-=item * The ack issues list at Google Code
+=item * The ack issues list at Github
 
-L<http://code.google.com/p/ack/issues/list>
+L<http://github.com/petdance/ack/issues>
 
 =item * AnnoCPAN: Annotated CPAN documentation
 
@@ -781,9 +825,9 @@ L<http://cpanratings.perl.org/d/ack>
 
 L<http://search.cpan.org/dist/ack>
 
-=item * Subversion repository
+=item * Git source repository
 
-L<http://ack.googlecode.com/svn/>
+L<http://github.com/petdance/ack>
 
 =back
 
@@ -792,6 +836,9 @@ L<http://ack.googlecode.com/svn/>
 How appropriate to have I<ack>nowledgements!
 
 Thanks to everyone who has contributed to ack in any way, including
+Packy Anderson,
+JR Boyens,
+Dan Sully,
 Ryan Niebur,
 Kent Fredric,
 Mike Morearty,

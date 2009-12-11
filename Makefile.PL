@@ -29,6 +29,7 @@ my %parms = (
         'File::Basename'    => 0,
         'Pod::Usage'        => 0,
     },
+    MAN3PODS            => {}, # no need for man pages for any of the .pm files
     dist                => { COMPRESS => 'gzip -9f', SUFFIX => 'gz', },
     clean               => { FILES => 'ack-1* nytprof*' },
 );
@@ -41,9 +42,9 @@ if ( $ExtUtils::MakeMaker::VERSION ge '6.46' ) {
     $parms{META_MERGE} = {
         resources => {
             homepage    => 'http://betterthangrep.com/',
-            bugtracker  => 'http://code.google.com/p/ack/issues/list',
+            bugtracker  => 'http://github.com/petdance/ack',
             license     => 'http://dev.perl.org/licenses/',
-            repository  => 'http://code.google.com/p/ack/source',
+            repository  => 'git://github.com/petdance/ack.git',
             MailingList => 'http://groups.google.com/group/ack-users',
         }
     };

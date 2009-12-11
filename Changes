@@ -1,6 +1,33 @@
-Changelog for ack
+1.92        Fri Dec 11 11:47:56 CST 2009
+
+    ack is now hosted at github: http://github.com/petdance/ack
+
+    [FIXES]
+    The --pager flag would not work.  Now it does.  Thanks Packy
+    Anderson.
+
+    File matching for Emacs work files that match #*# was wrong.
+    It was checking the entire path, not just the basename.  This
+    is fixed.  (http://github.com/petdance/ack/issues/closed/#issue/101)
+
+    Fixed URLs that pointed to old Google Code.
+
+
+    [ENHANCEMENTS]
+    Added Scala support.  Thanks to Dan Sully.
+
+    Added .phtml as an extension for PHP.
+
+    Using -f or -g now return a proper error code.  If files are
+    found, ack returns 0.  If none are found, ack returns 1.  This
+    is a change in the specification, but the code didn't match the
+    specfication anyway.
+
+    No man pages are created for any of the .pm files any more.
+
 
 1.90        Mon Sep  7 23:24:24 CDT 2009
+
     [ENHANCEMENTS]
     Added Ada support.  Thanks to Shaun Patterson.
 
@@ -13,6 +40,7 @@ Changelog for ack
 
     Added an updated ack.bash_completion.sh from Adam James.
 
+
     [FIXES]
     Expanded --files-without-match to --files-without-matches.
 
@@ -24,10 +52,12 @@ Changelog for ack
 
     Fixed uninitialized errors in tickets #138 and #159.
 
+
     [DOCUMENTATION]
     Fixed an incorrect command line in the docs for -f.
 
     Added notes on --pager.  Thanks to Mike Morearty.
+
 
     [BUILD]
     Made the squash program more robust when handling POD.  Thanks
@@ -35,6 +65,7 @@ Changelog for ack
 
 
 1.89_02     Wed May 13 16:20:21 CDT 2009
+
     [DISTRIBUTION]
     Updated Makefile.PL to use new ExtUtils::MakeMaker features.
     Thanks, Schwern.
@@ -593,14 +624,14 @@ Changelog for ack
 
     RT #25391: Fixed test failures under Win32.
 
-    Spelled Slaven Rezić's name properly.  Look, my first utf-8 string!
+    Spelled Slaven ReziÄ‡'s name properly.  Look, my first utf-8 string!
 
     [ENHANCEMENTS]
     Added .properties extension for --java.
 
     Added -L as a negation to -l.  This is equivalent to -l -v.
 
-    Added more GNU-style long opts.  Thanks to Ævar Arnfjörð Bjarmason,
+    Added more GNU-style long opts.  Thanks to Ã†var ArnfjÃ¶rÃ° Bjarmason,
     my second utf-8 string.
 
 
@@ -730,4 +761,3 @@ Changelog for ack
 
     Lots of refactoring of search() in preparation for showing
     context around matches.
-

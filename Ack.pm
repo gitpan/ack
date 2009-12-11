@@ -13,15 +13,15 @@ App::Ack - A container for functions for the ack program
 
 =head1 VERSION
 
-Version 1.90
+Version 1.92
 
 =cut
 
 our $VERSION;
 our $COPYRIGHT;
 BEGIN {
-    $VERSION = '1.90';
-    $COPYRIGHT = 'Copyright 2005-2009 Andy Lester, all rights reserved.';
+    $VERSION = '1.92';
+    $COPYRIGHT = 'Copyright 2005-2009 Andy Lester.';
 }
 
 our $fh;
@@ -99,11 +99,12 @@ BEGIN {
         ocaml       => [qw( ml mli )],
         parrot      => [qw( pir pasm pmc ops pod pg tg )],
         perl        => [qw( pl pm pod t )],
-        php         => [qw( php phpt php3 php4 php5 )],
+        php         => [qw( php phpt php3 php4 php5 phtml)],
         plone       => [qw( pt cpt metadata cpy py )],
         python      => [qw( py )],
         rake        => q{Rakefiles},
         ruby        => [qw( rb rhtml rjs rxml erb rake )],
+        scala       => [qw( scala )],
         scheme      => [qw( scm ss )],
         shell       => [qw( sh bash csh tcsh ksh zsh )],
         skipped     => q{Files, but not directories, normally skipped by ack (default: off)},
@@ -268,7 +269,7 @@ sub get_command_line_options {
     my $parser = Getopt::Long::Parser->new();
     $parser->configure( 'bundling', 'no_ignore_case', );
     $parser->getoptions( %{$getopt_specs} ) or
-        App::Ack::die( 'See ack --help or ack --man for options.' );
+        App::Ack::die( 'See ack --help, ack --help-types or ack --man for options.' );
 
     my $to_screen = not output_to_pipe();
     my %defaults = (
@@ -470,10 +471,10 @@ use constant TEXT => 'text';
 sub filetypes {
     my $filename = shift;
 
-    return 'skipped' unless is_searchable( $filename );
-
     my $basename = $filename;
     $basename =~ s{.*[$dir_sep_chars]}{};
+
+    return 'skipped' unless is_searchable( $basename );
 
     my $lc_basename = lc $basename;
     return ('make',TEXT)        if $lc_basename eq 'makefile';
@@ -535,6 +536,8 @@ Recognized files:
   /[._].*\.swp$/  - Vi(m) swap files
   /core\.\d+$/    - core dumps
 
+Note that I<$filename> must be just a file, not a full path.
+
 =cut
 
 sub is_searchable {
@@ -543,7 +546,9 @@ sub is_searchable {
     # If these are updated, update the --help message
     return if $filename =~ /[.]bak$/;
     return if $filename =~ /~$/;
-    return if $filename =~ m{[$dir_sep_chars]?(?:#.+#|core\.\d+|[._].*\.swp)$}o;
+    return if $filename =~ m{^#.*#$}o;
+    return if $filename =~ m{^core\.\d+$}o;
+    return if $filename =~ m{[._].*\.swp$}o;
 
     return 1;
 }
@@ -1246,12 +1251,14 @@ sub print_files {
 
     my $ors = $opt->{print0} ? "\0" : "\n";
 
+    my $nmatches = 0;
     while ( defined ( my $file = $iter->() ) ) {
         App::Ack::print $file, $ors;
+        $nmatches++;
         last if $opt->{1};
     }
 
-    return;
+    return $nmatches;
 }
 
 =head2 print_files_with_matches( $iter, $opt )
@@ -1441,14 +1448,14 @@ sub get_iterator {
     if ( $g_regex ) {
         $file_filter
             = $opt->{u}   ? sub { $File::Next::name =~ /$g_regex/ } # XXX Maybe this should be a 1, no?
-            : $opt->{all} ? sub { $starting_point{ $File::Next::name } || ( $File::Next::name =~ /$g_regex/ && is_searchable( $File::Next::name ) ) }
+            : $opt->{all} ? sub { $starting_point{ $File::Next::name } || ( $File::Next::name =~ /$g_regex/ && is_searchable( $_ ) ) }
             :               sub { $starting_point{ $File::Next::name } || ( $File::Next::name =~ /$g_regex/ && is_interesting( @_ ) ) }
             ;
     }
     else {
         $file_filter
             = $opt->{u}   ? sub {1}
-            : $opt->{all} ? sub { $starting_point{ $File::Next::name } || is_searchable( $File::Next::name ) }
+            : $opt->{all} ? sub { $starting_point{ $File::Next::name } || is_searchable( $_ ) }
             :               sub { $starting_point{ $File::Next::name } || is_interesting( @_ ) }
             ;
     }
@@ -1473,7 +1480,7 @@ sub get_iterator {
 sub set_up_pager {
     my $command = shift;
 
-    return unless App::Ack::output_to_pipe();
+    return if App::Ack::output_to_pipe();
 
     my $pager;
     if ( not open( $pager, '|-', $command ) ) {
@@ -1508,7 +1515,7 @@ sub output_to_pipe {
 
 =head1 COPYRIGHT & LICENSE
 
-Copyright 2005-2009 Andy Lester, all rights reserved.
+Copyright 2005-2009 Andy Lester.
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of either:
