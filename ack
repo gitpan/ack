@@ -12,7 +12,7 @@
 use warnings;
 use strict;
 
-our $VERSION = '1.92';
+our $VERSION = '1.93_01';
 # Check http://betterthangrep.com/ for updates
 
 # These are all our globals.
@@ -32,13 +32,16 @@ MAIN: {
         /^--th[pt]+t+$/ && App::Ack::_thpppt($_);
 
         # See if we want to ignore the environment. (Don't tell Al Gore.)
-        if ( $_ eq '--noenv' ) {
-            my @keys = ( 'ACKRC', grep { /^ACK_/ } keys %ENV );
-            delete @ENV{@keys};
-            $env_is_usable = 0;
+        if ( /^--(no)?env$/ ) {
+            $env_is_usable = defined $1 ? 0 : 1;
         }
     }
-    unshift( @ARGV, App::Ack::read_ackrc() ) if $env_is_usable;
+    if ( $env_is_usable ) {
+        unshift( @ARGV, App::Ack::read_ackrc() );
+    } else {
+        my @keys = ( 'ACKRC', grep { /^ACK_/ } keys %ENV );
+        delete @ENV{@keys};
+    }
     App::Ack::load_colors();
 
     if ( exists $ENV{ACK_SWITCHES} ) {
@@ -69,15 +72,23 @@ sub main {
             my $s = $nargs == 1 ? '' : 's';
             App::Ack::warn( "Ignoring $nargs argument$s on the command-line while acting as a filter." );
         }
+
         my $res = App::Ack::Resource::Basic->new( '-' );
-        App::Ack::search_resource( $res, $opt );
+        my $nmatches;
+        if ( $opt->{count} ) {
+            $nmatches = App::Ack::search_and_list( $res, $opt );
+        } else {
+            # normal searching
+            $nmatches = App::Ack::search_resource( $res, $opt );
+        }
         $res->close();
-        exit 0;
+        App::Ack::exit_from_ack( $nmatches );
     }
 
     my $file_matching = $opt->{f} || $opt->{lines};
-    if ( !$file_matching ) {
-        @ARGV or App::Ack::die( 'No regular expression found.' );
+    if ( $file_matching ) {
+        App::Ack::die( "Can't specify both a regex ($opt->{regex}) and use one of --line, -f or -g." ) if $opt->{regex};
+    } else {
         $opt->{regex} = App::Ack::build_regex( defined $opt->{regex} ? $opt->{regex} : shift @ARGV, $opt );
     }
 
@@ -101,7 +112,7 @@ sub main {
         $nmatches = App::Ack::print_matches( $iter, $opt );
     }
     close $App::Ack::fh;
-    exit ($nmatches ? 0 : 1);
+    App::Ack::exit_from_ack( $nmatches );
 }
 
 =head1 NAME
@@ -204,6 +215,8 @@ each input file.  If B<-l> is in effect, it will only show the
 number of lines for each file that has lines matching.  Without
 B<-l>, some line counts may be zeroes.
 
+If combined with B<-h> (B<--no-filename>) ack outputs only one total count.
+
 =item B<--color>, B<--nocolor>
 
 B<--color> highlights the matching text.  B<--nocolor> supresses
@@ -220,6 +233,10 @@ Sets the color to be used for filenames.
 =item B<--color-match=I<color>>
 
 Sets the color to be used for matches.
+
+=item B<--color-lineno=I<color>>
+
+Sets the color to be used for line numbers.
 
 =item B<--column>
 
@@ -294,13 +311,18 @@ Ignore case in the search strings.
 This applies only to the PATTERN, not to the regexes given for the B<-g>
 and B<-G> options.
 
-=item B<--[no]ignore-dir=DIRNAME>
+=item B<--[no]ignore-dir=I<DIRNAME>>
 
 Ignore directory (as CVS, .svn, etc are ignored). May be used multiple times
 to ignore multiple directories. For example, mason users may wish to include
 B<--ignore-dir=data>. The B<--noignore-dir> option allows users to search
 directories which would normally be ignored (perhaps to research the contents
 of F<.svn/props> directories).
+
+The I<DIRNAME> must always be a simple directory name. Nested directories like
+F<foo/bar> are NOT supported. You would need to specify B<--ignore-dir=foo> and
+then no files from any foo directory are taken into account by ack unless given
+explicitly on the command line.
 
 =item B<--line=I<NUM>>
 
@@ -336,7 +358,7 @@ Stop reading a file after I<NUM> matches.
 
 Print this manual page.
 
-=item B<-n>
+=item B<-n>, B<--no-recurse>
 
 No descending into subdirectories.
 
@@ -383,6 +405,11 @@ Quote all metacharacters in PATTERN, it is treated as a literal.
 This applies only to the PATTERN, not to the regexes given for the B<-g>
 and B<-G> options.
 
+=item B<-r>, B<-R>, B<--recurse>
+
+Recurse into sub-directories. This is the default and just here for
+compatibility with grep. You can also use it for turning B<--no-recurse> off.
+
 =item B<--smart-case>, B<--no-smart-case>
 
 Ignore case in the search strings if PATTERN contains no uppercase
@@ -398,6 +425,12 @@ B<-g> and B<-G> options.
 
 Sorts the found files lexically.  Use this if you want your file
 listings to be deterministic between runs of I<ack>.
+
+=item B<--show-types>
+
+Outputs the filetypes that ack associates with each file.
+
+Works with B<-f> and B<-g> options.
 
 =item B<--thpppt>
 
@@ -597,6 +630,15 @@ This option can also be set with B<--color-match>.
 
 See B<ACK_COLOR_FILENAME> for the color specifications.
 
+=item ACK_COLOR_LINENO
+
+Specifies the color of the line number when printed in B<--color>
+mode.  By default, it's "bold yellow".
+
+This option can also be set with B<--color-lineno>.
+
+See B<ACK_COLOR_FILENAME> for the color specifications.
+
 =item ACK_PAGER
 
 Specifies a pager program, such as C<more>, C<less> or C<most>, to which
@@ -781,9 +823,21 @@ The name of the program is "ack".  Some packagers have called it
 "ack-grep" when creating packages because there's already a package
 out there called "ack" that has nothing to do with this ack.
 
-I suggest you rename your ack-grep install to "ack" because one of
-the crucial benefits of ack is having a name that's so short and
-simple to type.
+I suggest you make a symlink named F<ack> that points to F<ack-grep>
+because one of the crucial benefits of ack is having a name that's
+so short and simple to type.
+
+To do that, run this with F<sudo> or as root:
+
+   ln -s /usr/bin/ack-grep /usr/bin/ack
+
+=head2 Can I do multi-line regexes?
+
+No, ack does not support regexes that match multiple lines.  Doing
+so would require reading in the entire file at a time.
+
+If you want to see lines near your match, use the C<--A>, C<--B>
+and C<--C> switches for displaying context.
 
 =head1 AUTHOR
 
@@ -905,20 +959,10 @@ and Pete Krawczyk.
 
 =head1 COPYRIGHT & LICENSE
 
-Copyright 2005-2009 Andy Lester.
+Copyright 2005-2010 Andy Lester.
 
 This program is free software; you can redistribute it and/or modify
-it under the terms of either:
-
-=over 4
-
-=item * the GNU General Public License as published by the Free
-Software Foundation; either version 1, or (at your option) any later
-version, or
-
-=item * the Artistic License version 2.0.
-
-=back
+it under the terms of the Artistic License v2.0.
 
 =cut
 package File::Next;
@@ -1101,8 +1145,8 @@ use strict;
 our $VERSION;
 our $COPYRIGHT;
 BEGIN {
-    $VERSION = '1.92';
-    $COPYRIGHT = 'Copyright 2005-2009 Andy Lester.';
+    $VERSION = '1.93_01';
+    $COPYRIGHT = 'Copyright 2005-2010 Andy Lester.';
 }
 
 our $fh;
@@ -1159,6 +1203,7 @@ BEGIN {
         binary      => q{Binary files, as defined by Perl's -B op (default: off)},
         cc          => [qw( c h xs )],
         cfmx        => [qw( cfc cfm cfml )],
+        clojure     => [qw( clj )],
         cpp         => [qw( cpp cc cxx m hpp hh h hxx )],
         csharp      => [qw( cs )],
         css         => [qw( css )],
@@ -1173,7 +1218,7 @@ BEGIN {
         jsp         => [qw( jsp jspx jhtm jhtml )],
         lisp        => [qw( lisp lsp )],
         lua         => [qw( lua )],
-        make        => q{Makefiles},
+        make        => q{Makefiles (including *.mk and *.mak)},
         mason       => [qw( mas mhtml mpl mtxt )],
         objc        => [qw( m h )],
         objcpp      => [qw( mm h )],
@@ -1184,7 +1229,7 @@ BEGIN {
         plone       => [qw( pt cpt metadata cpy py )],
         python      => [qw( py )],
         rake        => q{Rakefiles},
-        ruby        => [qw( rb rhtml rjs rxml erb rake )],
+        ruby        => [qw( rb rhtml rjs rxml erb rake spec )],
         scala       => [qw( scala )],
         scheme      => [qw( scm ss )],
         shell       => [qw( sh bash csh tcsh ksh zsh )],
@@ -1196,6 +1241,8 @@ BEGIN {
         text        => q{Text files, as defined by Perl's -T op (default: off)},
         tt          => [qw( tt tt2 ttml )],
         vb          => [qw( bas cls frm ctl vb resx )],
+        verilog     => [qw( v vh sv )],
+        vhdl        => [qw( vhd vhdl )],
         vim         => [qw( vim )],
         yaml        => [qw( yaml yml )],
         xml         => [qw( xml dtd xslt ent )],
@@ -1208,6 +1255,8 @@ BEGIN {
             }
         }
     }
+    # add manually Makefile extensions
+    push @{$types{$_}}, 'make' for qw{ mk mak };
 
     # These have to be checked before any filehandle diddling.
     $output_to_pipe  = not -t *STDOUT;
@@ -1237,6 +1286,12 @@ sub read_ackrc {
             chomp @lines;
             close $fh or App::Ack::die( "$filename: $!\n" );
 
+            # get rid of leading and trailing whitespaces
+            for ( @lines ) {
+               s/^\s+//;
+               s/\s+$//;
+            }
+
             return @lines;
         }
     }
@@ -1261,6 +1316,7 @@ sub get_command_line_options {
         'color|colour!'         => \$opt{color},
         'color-match=s'         => \$ENV{ACK_COLOR_MATCH},
         'color-filename=s'      => \$ENV{ACK_COLOR_FILENAME},
+        'color-lineno=s'        => \$ENV{ACK_COLOR_LINENO},
         'column!'               => \$opt{column},
         count                   => \$opt{count},
         'env!'                  => sub { }, # ignore this option, it is handled beforehand
@@ -1287,7 +1343,8 @@ sub get_command_line_options {
         'passthru'              => \$opt{passthru},
         'print0'                => \$opt{print0},
         'Q|literal'             => \$opt{Q},
-        'r|R|recurse'           => sub {},
+        'r|R|recurse'           => sub { $opt{n} = 0 },
+        'show-types'            => \$opt{show_types},
         'smart-case!'           => \$opt{smart_case},
         'sort-files'            => \$opt{sort_files},
         'u|unrestricted'        => \$opt{u},
@@ -1502,7 +1559,7 @@ sub filetypes {
     return 'skipped' unless is_searchable( $basename );
 
     my $lc_basename = lc $basename;
-    return ('make',TEXT)        if $lc_basename eq 'makefile';
+    return ('make',TEXT)        if $lc_basename eq 'makefile' || $lc_basename eq 'gnumakefile'; 
     return ('rake','ruby',TEXT) if $lc_basename eq 'rakefile';
 
     # If there's an extension, look it up
@@ -1568,6 +1625,8 @@ sub is_searchable {
 sub build_regex {
     my $str = shift;
     my $opt = shift;
+
+    defined $str or App::Ack::die( 'No regular expression found.' );
 
     $str = quotemeta( $str ) if $opt->{Q};
     if ( $opt->{w} ) {
@@ -1718,7 +1777,8 @@ File presentation:
                         output is redirected, or on Windows)
   --[no]colour          Same as --[no]color
   --color-filename=COLOR
-  --color-match=COLOR   Set the color for matches and filenames.
+  --color-match=COLOR
+  --color-lineno=COLOR  Set the color for filenames, matches, and line numbers.
   --flush               Flush output immediately, even when ack is used
                         non-interactively (when output goes to a pipe or
                         file).
@@ -1728,6 +1788,7 @@ File finding:
                         The PATTERN must not be specified.
   -g REGEX              Same as -f, but only print files matching REGEX.
   --sort-files          Sort the found files lexically.
+  --show-types          Show which types each file has.
 
 File inclusion/exclusion:
   -a, --all-types       All file types searched;
@@ -1867,6 +1928,7 @@ sub load_colors {
 
     $ENV{ACK_COLOR_MATCH}    ||= 'black on_yellow';
     $ENV{ACK_COLOR_FILENAME} ||= 'bold green';
+    $ENV{ACK_COLOR_LINENO}   ||= 'bold yellow';
 
     return;
 }
@@ -1908,17 +1970,27 @@ sub print_count {
     my $nmatches = shift;
     my $ors = shift;
     my $count = shift;
+    my $show_filename = shift;
 
-    App::Ack::print( $filename );
-    App::Ack::print( ':', $nmatches ) if $count;
+    if ($show_filename) {
+        App::Ack::print( $filename );
+        App::Ack::print( ':', $nmatches ) if $count;
+    } else {
+        App::Ack::print( $nmatches ) if $count;
+    }
     App::Ack::print( $ors );
 }
 
 sub print_count0 {
     my $filename = shift;
     my $ors = shift;
+    my $show_filename = shift;
 
-    App::Ack::print( $filename, ':0', $ors );
+    if ($show_filename) {
+        App::Ack::print( $filename, ':0', $ors );
+    } else {
+        App::Ack::print( '0', $ors );
+    }
 }
 
 
@@ -2079,7 +2151,11 @@ sub print_match_or_context {
 
         if ( $show_filename ) {
             App::Ack::print_filename($display_filename, $sep) if not $heading;
-            App::Ack::print_line_no($line_no, $sep);
+            my $display_line_no =
+                $color
+                    ? Term::ANSIColor::colored( $line_no, $ENV{ACK_COLOR_LINENO} )
+                    : $line_no;
+            App::Ack::print_line_no($display_line_no, $sep);
         }
 
         if ( $output_func ) {
@@ -2113,6 +2189,17 @@ sub print_match_or_context {
 } # scope around search_resource() and print_match_or_context()
 
 
+TOTAL_COUNT_SCOPE: {
+my $total_count;
+
+sub get_total_count {
+    return $total_count;
+}
+
+sub reset_total_count {
+    $total_count = 0;
+}
+
 
 sub search_and_list {
     my $res = shift;
@@ -2121,6 +2208,7 @@ sub search_and_list {
     my $nmatches = 0;
     my $count = $opt->{count};
     my $ors = $opt->{print0} ? "\0" : "\n"; # output record separator
+    my $show_filename = $opt->{show_filename};
 
     my $regex = qr/$opt->{regex}/;
 
@@ -2143,15 +2231,21 @@ sub search_and_list {
         }
     }
 
-    if ( $nmatches ) {
-        App::Ack::print_count( $res->name, $nmatches, $ors, $count );
-    }
-    elsif ( $count && !$opt->{l} ) {
-        App::Ack::print_count0( $res->name, $ors );
+    if ( $opt->{show_total} ) {
+        $total_count += $nmatches;
+    } else {
+        if ( $nmatches ) {
+            App::Ack::print_count( $res->name, $nmatches, $ors, $count, $show_filename );
+        }
+        elsif ( $count && !$opt->{l} ) {
+            App::Ack::print_count0( $res->name, $ors, $show_filename );
+        }
     }
 
     return $nmatches ? 1 : 0;
 }   # search_and_list()
+
+} # scope around $total_count
 
 
 
@@ -2169,7 +2263,7 @@ sub print_files {
 
     my $nmatches = 0;
     while ( defined ( my $file = $iter->() ) ) {
-        App::Ack::print $file, $ors;
+        App::Ack::print $file, $opt->{show_types} ? " => " . join( ',', filetypes( $file ) ) : (),  $ors;
         $nmatches++;
         last if $opt->{1};
     }
@@ -2182,6 +2276,17 @@ sub print_files_with_matches {
     my $iter = shift;
     my $opt = shift;
 
+    # if we have -l and only 1 file given on command line (this means
+    # show_filename is set to 0), we want to see the filename nevertheless
+    $opt->{show_filename} = 1 if $opt->{l};
+
+    $opt->{show_filename} = 0 if $opt->{h};
+    $opt->{show_filename} = 1 if $opt->{H};
+
+    # abuse options to hand in the show_total parameter to search_and_list
+    $opt->{show_total} = $opt->{count} && !$opt->{show_filename};
+    reset_total_count();
+
     my $nmatches = 0;
     while ( defined ( my $filename = $iter->() ) ) {
         my $repo = App::Ack::Repository::Basic->new( $filename );
@@ -2192,6 +2297,10 @@ sub print_files_with_matches {
             last if $nmatches && $opt->{1};
         }
         $repo->close();
+    }
+
+    if ( $nmatches && $opt->{show_total} ) {
+        App::Ack::print_count('', get_total_count(), "\n", 1, 0  )
     }
 
     return $nmatches;
@@ -2386,6 +2495,14 @@ sub input_from_pipe {
 
 sub output_to_pipe {
     return $output_to_pipe;
+}
+
+
+sub exit_from_ack {
+    my $nmatches = shift;
+
+    my $rc = $nmatches ? 0 : 1;
+    exit $rc;
 }
 
 
