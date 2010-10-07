@@ -13,14 +13,14 @@ App::Ack - A container for functions for the ack program
 
 =head1 VERSION
 
-Version 1.93_01
+Version 1.93_02
 
 =cut
 
 our $VERSION;
 our $COPYRIGHT;
 BEGIN {
-    $VERSION = '1.93_01';
+    $VERSION = '1.93_02';
     $COPYRIGHT = 'Copyright 2005-2010 Andy Lester.';
 }
 
@@ -223,6 +223,7 @@ sub get_command_line_options {
         'h|no-filename'         => \$opt{h},
         'H|with-filename'       => \$opt{H},
         'i|ignore-case'         => \$opt{i},
+        'invert-file-match'     => \$opt{invert_file_match},
         'lines=s'               => sub { shift; my $val = shift; push @{$opt{lines}}, $val },
         'l|files-with-matches'  => \$opt{l},
         'L|files-without-matches' => sub { $opt{l} = $opt{v} = 1 },
@@ -247,10 +248,16 @@ sub get_command_line_options {
         'ignore-dirs=s'         => sub { shift; my $dir = remove_dir_sep( shift ); $ignore_dirs{$dir} = '--ignore-dirs' },
         'noignore-dirs=s'       => sub { shift; my $dir = remove_dir_sep( shift ); delete $ignore_dirs{$dir} },
 
-        'version'   => sub { print_version_statement(); exit 1; },
+        'version'   => sub { print_version_statement(); exit; },
         'help|?:s'  => sub { shift; show_help(@_); exit; },
         'help-types'=> sub { show_help_types(); exit; },
-        'man'       => sub { require Pod::Usage; Pod::Usage::pod2usage({-verbose => 2}); exit; },
+        'man'       => sub {
+            require Pod::Usage;
+            Pod::Usage::pod2usage({
+                -verbose => 2,
+                -exitval => 0,
+            });
+        },
 
         'type=s'    => sub {
             # Whatever --type=xxx they specify, set it manually in the hash
@@ -450,7 +457,7 @@ to ignore.
 =cut
 
 sub ignoredir_filter {
-    return !exists $ignore_dirs{$_};
+    return !exists $ignore_dirs{$_} && !exists $ignore_dirs{$File::Next::dir};
 }
 
 =head2 remove_dir_sep( $path )
@@ -490,7 +497,7 @@ sub filetypes {
     return 'skipped' unless is_searchable( $basename );
 
     my $lc_basename = lc $basename;
-    return ('make',TEXT)        if $lc_basename eq 'makefile' || $lc_basename eq 'gnumakefile'; 
+    return ('make',TEXT)        if $lc_basename eq 'makefile' || $lc_basename eq 'gnumakefile';
     return ('rake','ruby',TEXT) if $lc_basename eq 'rakefile';
 
     # If there's an extension, look it up
@@ -768,6 +775,7 @@ File finding:
                         The PATTERN must not be specified.
   -g REGEX              Same as -f, but only print files matching REGEX.
   --sort-files          Sort the found files lexically.
+  --invert-file-match   Print/search handle files that do not match -g/-G.
   --show-types          Show which types each file has.
 
 File inclusion/exclusion:
@@ -894,9 +902,8 @@ Running under Perl $ver at $this_perl
 
 $copyright
 
-This program is free software; you can redistribute it and/or modify
-it under the terms of either: the GNU General Public License as
-published by the Free Software Foundation; or the Artistic License.
+This program is free software.  You may modify or distribute it
+under the terms of the Artistic License v2.0.
 END_OF_VERSION
 }
 
@@ -985,7 +992,8 @@ sub print_count {
     if ($show_filename) {
         App::Ack::print( $filename );
         App::Ack::print( ':', $nmatches ) if $count;
-    } else {
+    }
+    else {
         App::Ack::print( $nmatches ) if $count;
     }
     App::Ack::print( $ors );
@@ -998,7 +1006,8 @@ sub print_count0 {
 
     if ($show_filename) {
         App::Ack::print( $filename, ':0', $ors );
-    } else {
+    }
+    else {
         App::Ack::print( '0', $ors );
     }
 }
@@ -1261,7 +1270,8 @@ sub search_and_list {
 
     if ( $opt->{show_total} ) {
         $total_count += $nmatches;
-    } else {
+    }
+    else {
         if ( $nmatches ) {
             App::Ack::print_count( $res->name, $nmatches, $ors, $count, $show_filename );
         }
@@ -1495,6 +1505,16 @@ sub get_starting_points {
     return \@what;
 }
 
+sub _match {
+    my ( $target, $expression, $invert_flag ) = @_;
+
+    if ( $invert_flag ) {
+        return $target !~ $expression;
+    }
+    else {
+        return $target =~ $expression;
+    }
+}
 
 =head2 get_iterator
 
@@ -1514,9 +1534,9 @@ sub get_iterator {
 
     if ( $g_regex ) {
         $file_filter
-            = $opt->{u}   ? sub { $File::Next::name =~ /$g_regex/ } # XXX Maybe this should be a 1, no?
-            : $opt->{all} ? sub { $starting_point{ $File::Next::name } || ( $File::Next::name =~ /$g_regex/ && is_searchable( $_ ) ) }
-            :               sub { $starting_point{ $File::Next::name } || ( $File::Next::name =~ /$g_regex/ && is_interesting( @_ ) ) }
+            = $opt->{u}   ? sub { _match( $File::Next::name, qr/$g_regex/, $opt->{invert_file_match} ) }    # XXX Maybe this should be a 1, no?
+            : $opt->{all} ? sub { $starting_point{ $File::Next::name } || ( _match( $File::Next::name, qr/$g_regex/, $opt->{invert_file_match} ) && is_searchable( $_ ) ) }
+            :               sub { $starting_point{ $File::Next::name } || ( _match( $File::Next::name, qr/$g_regex/, $opt->{invert_file_match} ) && is_interesting( @ _) ) }
             ;
     }
     else {

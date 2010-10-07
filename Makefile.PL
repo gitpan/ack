@@ -35,7 +35,7 @@ my %parms = (
 );
 
 if ( $ExtUtils::MakeMaker::VERSION =~ /^\d\.\d\d$/ and $ExtUtils::MakeMaker::VERSION > 6.30 ) {
-    $parms{LICENSE} = 'perl';
+    $parms{LICENSE} = 'artistic_2';
 }
 
 if ( $ExtUtils::MakeMaker::VERSION ge '6.46' ) {
@@ -43,7 +43,7 @@ if ( $ExtUtils::MakeMaker::VERSION ge '6.46' ) {
         resources => {
             homepage    => 'http://betterthangrep.com/',
             bugtracker  => 'http://github.com/petdance/ack',
-            license     => 'http://dev.perl.org/licenses/',
+            license     => 'http://www.opensource.org/licenses/artistic-license-2.0.php',
             repository  => 'git://github.com/petdance/ack.git',
             MailingList => 'http://groups.google.com/group/ack-users',
         }
@@ -82,7 +82,7 @@ PERL_T          = $(PERL) -T
 tags:
 	ctags -f tags --recurse --totals \
 		--exclude=blib \
-		--exclude=.svn \
+		--exclude=.git \
 		--exclude='*~' \
 		--exclude=$(ACK) \
 		--languages=Perl --langmap=Perl:+.t \

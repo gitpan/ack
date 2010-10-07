@@ -12,7 +12,7 @@
 use warnings;
 use strict;
 
-our $VERSION = '1.93_01';
+our $VERSION = '1.93_02';
 # Check http://betterthangrep.com/ for updates
 
 # These are all our globals.
@@ -38,7 +38,8 @@ MAIN: {
     }
     if ( $env_is_usable ) {
         unshift( @ARGV, App::Ack::read_ackrc() );
-    } else {
+    }
+    else {
         my @keys = ( 'ACKRC', grep { /^ACK_/ } keys %ENV );
         delete @ENV{@keys};
     }
@@ -77,7 +78,8 @@ sub main {
         my $nmatches;
         if ( $opt->{count} ) {
             $nmatches = App::Ack::search_and_list( $res, $opt );
-        } else {
+        }
+        else {
             # normal searching
             $nmatches = App::Ack::search_resource( $res, $opt );
         }
@@ -88,7 +90,8 @@ sub main {
     my $file_matching = $opt->{f} || $opt->{lines};
     if ( $file_matching ) {
         App::Ack::die( "Can't specify both a regex ($opt->{regex}) and use one of --line, -f or -g." ) if $opt->{regex};
-    } else {
+    }
+    else {
         $opt->{regex} = App::Ack::build_regex( defined $opt->{regex} ? $opt->{regex} : shift @ARGV, $opt );
     }
 
@@ -773,10 +776,12 @@ them here.
 
 =head2 Why isn't ack finding a match in (some file)?
 
-Probably because it's of a type that ack doesn't recognize.
+Probably because it's of a type that ack doesn't recognize.  ack's
+searching behavior is driven by filetype.  B<If ack doesn't know
+what kind of file it is, ack ignores the file.>
 
-ack's searching behavior is driven by filetype.  If ack doesn't
-know what kind of file it is, ack ignores it.
+Use the C<-f> switch to see a list of files that ack will search
+for you.
 
 If you want ack to search files that it doesn't recognize, use the
 C<-a> switch.
@@ -804,7 +809,7 @@ switches.
 
 You can certainly use ack to select your files to update.  For
 example, to change all "foo" to "bar" in all PHP files, you can do
-this form the Unix shell:
+this from the Unix shell:
 
     $ perl -i -p -e's/foo/bar/g' $(ack -f --php)
 
@@ -830,6 +835,11 @@ so short and simple to type.
 To do that, run this with F<sudo> or as root:
 
    ln -s /usr/bin/ack-grep /usr/bin/ack
+
+=head2 What does F<ack> mean?
+
+Nothing.  I wanted a name that was easy to type and that you could
+pronounce as a single syllable.
 
 =head2 Can I do multi-line regexes?
 
@@ -898,6 +908,10 @@ L<http://github.com/petdance/ack>
 How appropriate to have I<ack>nowledgements!
 
 Thanks to everyone who has contributed to ack in any way, including
+Nick Hooey,
+Bo Borgerson,
+Mark Szymanski,
+Marq Schneider,
 Packy Anderson,
 JR Boyens,
 Dan Sully,
@@ -1145,7 +1159,7 @@ use strict;
 our $VERSION;
 our $COPYRIGHT;
 BEGIN {
-    $VERSION = '1.93_01';
+    $VERSION = '1.93_02';
     $COPYRIGHT = 'Copyright 2005-2010 Andy Lester.';
 }
 
@@ -1330,6 +1344,7 @@ sub get_command_line_options {
         'h|no-filename'         => \$opt{h},
         'H|with-filename'       => \$opt{H},
         'i|ignore-case'         => \$opt{i},
+        'invert-file-match'     => \$opt{invert_file_match},
         'lines=s'               => sub { shift; my $val = shift; push @{$opt{lines}}, $val },
         'l|files-with-matches'  => \$opt{l},
         'L|files-without-matches' => sub { $opt{l} = $opt{v} = 1 },
@@ -1354,10 +1369,16 @@ sub get_command_line_options {
         'ignore-dirs=s'         => sub { shift; my $dir = remove_dir_sep( shift ); $ignore_dirs{$dir} = '--ignore-dirs' },
         'noignore-dirs=s'       => sub { shift; my $dir = remove_dir_sep( shift ); delete $ignore_dirs{$dir} },
 
-        'version'   => sub { print_version_statement(); exit 1; },
+        'version'   => sub { print_version_statement(); exit; },
         'help|?:s'  => sub { shift; show_help(@_); exit; },
         'help-types'=> sub { show_help_types(); exit; },
-        'man'       => sub { require Pod::Usage; Pod::Usage::pod2usage({-verbose => 2}); exit; },
+        'man'       => sub {
+            require Pod::Usage;
+            Pod::Usage::pod2usage({
+                -verbose => 2,
+                -exitval => 0,
+            });
+        },
 
         'type=s'    => sub {
             # Whatever --type=xxx they specify, set it manually in the hash
@@ -1536,7 +1557,7 @@ sub delete_type {
 
 
 sub ignoredir_filter {
-    return !exists $ignore_dirs{$_};
+    return !exists $ignore_dirs{$_} && !exists $ignore_dirs{$File::Next::dir};
 }
 
 
@@ -1559,7 +1580,7 @@ sub filetypes {
     return 'skipped' unless is_searchable( $basename );
 
     my $lc_basename = lc $basename;
-    return ('make',TEXT)        if $lc_basename eq 'makefile' || $lc_basename eq 'gnumakefile'; 
+    return ('make',TEXT)        if $lc_basename eq 'makefile' || $lc_basename eq 'gnumakefile';
     return ('rake','ruby',TEXT) if $lc_basename eq 'rakefile';
 
     # If there's an extension, look it up
@@ -1788,6 +1809,7 @@ File finding:
                         The PATTERN must not be specified.
   -g REGEX              Same as -f, but only print files matching REGEX.
   --sort-files          Sort the found files lexically.
+  --invert-file-match   Print/search handle files that do not match -g/-G.
   --show-types          Show which types each file has.
 
 File inclusion/exclusion:
@@ -1904,9 +1926,8 @@ Running under Perl $ver at $this_perl
 
 $copyright
 
-This program is free software; you can redistribute it and/or modify
-it under the terms of either: the GNU General Public License as
-published by the Free Software Foundation; or the Artistic License.
+This program is free software.  You may modify or distribute it
+under the terms of the Artistic License v2.0.
 END_OF_VERSION
 }
 
@@ -1975,7 +1996,8 @@ sub print_count {
     if ($show_filename) {
         App::Ack::print( $filename );
         App::Ack::print( ':', $nmatches ) if $count;
-    } else {
+    }
+    else {
         App::Ack::print( $nmatches ) if $count;
     }
     App::Ack::print( $ors );
@@ -1988,7 +2010,8 @@ sub print_count0 {
 
     if ($show_filename) {
         App::Ack::print( $filename, ':0', $ors );
-    } else {
+    }
+    else {
         App::Ack::print( '0', $ors );
     }
 }
@@ -2233,7 +2256,8 @@ sub search_and_list {
 
     if ( $opt->{show_total} ) {
         $total_count += $nmatches;
-    } else {
+    }
+    else {
         if ( $nmatches ) {
             App::Ack::print_count( $res->name, $nmatches, $ors, $count, $show_filename );
         }
@@ -2428,6 +2452,16 @@ sub get_starting_points {
     return \@what;
 }
 
+sub _match {
+    my ( $target, $expression, $invert_flag ) = @_;
+
+    if ( $invert_flag ) {
+        return $target !~ $expression;
+    }
+    else {
+        return $target =~ $expression;
+    }
+}
 
 
 sub get_iterator {
@@ -2442,9 +2476,9 @@ sub get_iterator {
 
     if ( $g_regex ) {
         $file_filter
-            = $opt->{u}   ? sub { $File::Next::name =~ /$g_regex/ } # XXX Maybe this should be a 1, no?
-            : $opt->{all} ? sub { $starting_point{ $File::Next::name } || ( $File::Next::name =~ /$g_regex/ && is_searchable( $_ ) ) }
-            :               sub { $starting_point{ $File::Next::name } || ( $File::Next::name =~ /$g_regex/ && is_interesting( @_ ) ) }
+            = $opt->{u}   ? sub { _match( $File::Next::name, qr/$g_regex/, $opt->{invert_file_match} ) }    # XXX Maybe this should be a 1, no?
+            : $opt->{all} ? sub { $starting_point{ $File::Next::name } || ( _match( $File::Next::name, qr/$g_regex/, $opt->{invert_file_match} ) && is_searchable( $_ ) ) }
+            :               sub { $starting_point{ $File::Next::name } || ( _match( $File::Next::name, qr/$g_regex/, $opt->{invert_file_match} ) && is_interesting( @ _) ) }
             ;
     }
     else {

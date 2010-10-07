@@ -3,7 +3,7 @@
 use warnings;
 use strict;
 
-our $VERSION = '1.93_01';
+our $VERSION = '1.93_02';
 # Check http://betterthangrep.com/ for updates
 
 # These are all our globals.
@@ -30,7 +30,8 @@ MAIN: {
     }
     if ( $env_is_usable ) {
         unshift( @ARGV, App::Ack::read_ackrc() );
-    } else {
+    }
+    else {
         my @keys = ( 'ACKRC', grep { /^ACK_/ } keys %ENV );
         delete @ENV{@keys};
     }
@@ -69,7 +70,8 @@ sub main {
         my $nmatches;
         if ( $opt->{count} ) {
             $nmatches = App::Ack::search_and_list( $res, $opt );
-        } else {
+        }
+        else {
             # normal searching
             $nmatches = App::Ack::search_resource( $res, $opt );
         }
@@ -80,7 +82,8 @@ sub main {
     my $file_matching = $opt->{f} || $opt->{lines};
     if ( $file_matching ) {
         App::Ack::die( "Can't specify both a regex ($opt->{regex}) and use one of --line, -f or -g." ) if $opt->{regex};
-    } else {
+    }
+    else {
         $opt->{regex} = App::Ack::build_regex( defined $opt->{regex} ? $opt->{regex} : shift @ARGV, $opt );
     }
 
@@ -765,10 +768,12 @@ them here.
 
 =head2 Why isn't ack finding a match in (some file)?
 
-Probably because it's of a type that ack doesn't recognize.
+Probably because it's of a type that ack doesn't recognize.  ack's
+searching behavior is driven by filetype.  B<If ack doesn't know
+what kind of file it is, ack ignores the file.>
 
-ack's searching behavior is driven by filetype.  If ack doesn't
-know what kind of file it is, ack ignores it.
+Use the C<-f> switch to see a list of files that ack will search
+for you.
 
 If you want ack to search files that it doesn't recognize, use the
 C<-a> switch.
@@ -796,7 +801,7 @@ switches.
 
 You can certainly use ack to select your files to update.  For
 example, to change all "foo" to "bar" in all PHP files, you can do
-this form the Unix shell:
+this from the Unix shell:
 
     $ perl -i -p -e's/foo/bar/g' $(ack -f --php)
 
@@ -822,6 +827,11 @@ so short and simple to type.
 To do that, run this with F<sudo> or as root:
 
    ln -s /usr/bin/ack-grep /usr/bin/ack
+
+=head2 What does F<ack> mean?
+
+Nothing.  I wanted a name that was easy to type and that you could
+pronounce as a single syllable.
 
 =head2 Can I do multi-line regexes?
 
@@ -890,6 +900,10 @@ L<http://github.com/petdance/ack>
 How appropriate to have I<ack>nowledgements!
 
 Thanks to everyone who has contributed to ack in any way, including
+Nick Hooey,
+Bo Borgerson,
+Mark Szymanski,
+Marq Schneider,
 Packy Anderson,
 JR Boyens,
 Dan Sully,
