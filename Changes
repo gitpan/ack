@@ -1,5 +1,15 @@
 History file for ack.  http://betterthangrep.com/
 
+1.94        Mon Nov 15 22:38:48 CST 2010
+
+    [ENHANCEMENTS]
+    Added support for Go and Delphi.
+
+    Ignores Monotone's _MTN directories.
+
+    Added .xsl to the list of --xml files.
+
+
 1.93_02     Wed Oct  6 21:39:58 CDT 2010
     [FIXES]
     --man and --version now return with an exit code of 0.  They

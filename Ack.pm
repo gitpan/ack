@@ -13,14 +13,14 @@ App::Ack - A container for functions for the ack program
 
 =head1 VERSION
 
-Version 1.93_02
+Version 1.94
 
 =cut
 
 our $VERSION;
 our $COPYRIGHT;
 BEGIN {
-    $VERSION = '1.93_02';
+    $VERSION = '1.94';
     $COPYRIGHT = 'Copyright 2005-2010 Andy Lester.';
 }
 
@@ -59,6 +59,7 @@ BEGIN {
         '.hg'               => 'Mercurial',
         '.pc'               => 'quilt',
         '.svn'              => 'Subversion',
+        _MTN                => 'Monotone',
         blib                => 'Perl module building',
         CVS                 => 'CVS',
         RCS                 => 'RCS',
@@ -82,9 +83,11 @@ BEGIN {
         cpp         => [qw( cpp cc cxx m hpp hh h hxx )],
         csharp      => [qw( cs )],
         css         => [qw( css )],
+        delphi      => [qw( pas int dfm nfm dof dpk dproj groupproj bdsgroup bdsproj )],
         elisp       => [qw( el )],
         erlang      => [qw( erl hrl )],
         fortran     => [qw( f f77 f90 f95 f03 for ftn fpp )],
+        go          => [qw( go )],
         haskell     => [qw( hs lhs )],
         hh          => [qw( h )],
         html        => [qw( htm html shtml xhtml )],
@@ -120,7 +123,7 @@ BEGIN {
         vhdl        => [qw( vhd vhdl )],
         vim         => [qw( vim )],
         yaml        => [qw( yaml yml )],
-        xml         => [qw( xml dtd xslt ent )],
+        xml         => [qw( xml dtd xsl xslt ent )],
     );
 
     while ( my ($type,$exts) = each %mappings ) {
