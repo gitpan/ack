@@ -29,7 +29,7 @@ And I'm lookin' for you
 EOF
 
     my @files = qw( t/text/4th-of-july.txt );
-    my @args = qw( you --text );
+    my @args = qw( you );
     my @results = run_ack( @args, @files );
 
     lists_match( \@results, \@expected, q{I'm lookin' for you} );
@@ -39,14 +39,14 @@ DASH_C: {
     my @expected = @full_lyrics;
 
     my @files = qw( t/text/4th-of-july.txt );
-    my @args = qw( you --text --passthru );
+    my @args = qw( you --passthru );
     my @results = run_ack( @args, @files );
 
     lists_match( \@results, \@expected, q{Still lookin' for you, in passthru mode} );
 }
 
 HIGHLIGHTING: {
-    my @ack_args = qw( July --text --passthru --color );
+    my @ack_args = qw( July --passthru --color );
     my @results = pipe_into_ack( 't/text/4th-of-july.txt', @ack_args );
 
     is( scalar @results, scalar @full_lyrics, 'Got all the lines back' );

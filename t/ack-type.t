@@ -1,155 +1,77 @@
-#!perl
-
-use warnings;
 use strict;
-
-use Test::More tests => 74;
-
+use warnings;
 use lib 't';
-use Util qw( sets_match );
+
+use Test::More tests => 10;
+use File::Next ();
+use Util;
 
 prep_environment();
 
-my $cc = [qw(
-    t/swamp/c-source.c
-)];
+TEST_TYPE: {
+    my @expected = split( /\n/, <<'EOF' );
+t/swamp/0:1:#!/usr/bin/perl -w
+t/swamp/Makefile.PL:1:#!perl -T
+t/swamp/options.pl:1:#!/usr/bin/env perl
+t/swamp/perl-test.t:1:#!perl -T
+t/swamp/perl-without-extension:1:#!/usr/bin/perl -w
+t/swamp/perl.cgi:1:#!perl -T
+t/swamp/perl.pl:1:#!perl -T
+t/swamp/perl.pm:1:#!perl -T
+EOF
 
-my $hh = [qw(
-    t/swamp/c-header.h
-)];
-
-my $ruby = [qw(
-    t/etc/shebang.rb.xxx
-    t/swamp/Rakefile
-    t/swamp/sample.rake
-)];
-
-my $fortran = [qw(
-    t/swamp/pipe-stress-freaks.F
-    t/swamp/crystallography-weenies.f
-)];
-
-my $foo = [qw(
-    t/swamp/file.foo
-)];
-
-my $bar = [qw(
-    t/swamp/file.bar
-)];
-
-my $xml = [qw(
-    t/etc/buttonhook.rss.xxx
-    t/etc/buttonhook.xml.xxx
-)];
-
-my $perl = [qw(
-    t/etc/shebang.pl.xxx
-    t/swamp/0
-    t/swamp/Makefile.PL
-    t/swamp/options.pl
-    t/swamp/perl-test.t
-    t/swamp/perl-without-extension
-    t/swamp/perl.cgi
-    t/swamp/perl.pl
-    t/swamp/perl.pm
-    t/swamp/perl.pod
-)];
-
-my $skipped = [
-    't/etc/core.2112',
-    't/swamp/#emacs-workfile.pl#',
-    't/swamp/options.pl.bak',
-    't/swamp/compressed.min.js',
-    't/swamp/compressed-min.js',
-];
-
-my $perl_ruby = [ @{$perl}, @{$ruby} ];
-my $cc_hh = [ @{$cc}, @{$hh} ];
-my $foo_bar = [ @{$foo}, @{$bar} ];
-my $foo_xml = [ @{$foo}, @{$xml} ];
-my $foo_bar_xml = [ @{$foo}, @{$bar}, @{$xml} ];
-
-check_with( '--perl', $perl );
-check_with( '--perl --noruby', $perl );
-check_with( '--ruby', $ruby );
-check_with( '--ruby --noperl', $ruby );
-check_with( '--perl --ruby', $perl_ruby );
-check_with( '--ruby --perl', $perl_ruby );
-
-check_with( '--type=perl', $perl );
-check_with( '--type=perl --type=noruby', $perl );
-check_with( '--type=ruby', $ruby );
-check_with( '--type=ruby --type=noperl', $ruby );
-check_with( '--type=perl --type=ruby', $perl_ruby );
-check_with( '--type=ruby --type=perl', $perl_ruby );
-
-check_with( '--perl --type=noruby', $perl );
-check_with( '--ruby --type=noperl', $ruby );
-check_with( '--perl --type=ruby', $perl_ruby );
-check_with( '--ruby --type=perl', $perl_ruby );
-
-check_with( '--cc', $cc_hh );
-check_with( '--hh', $hh );
-check_with( '--cc --nohh', $cc );
-
-check_with( '--fortran', $fortran );
-
-check_with( '--skipped', $skipped );
-
-# check --type-set
-check_with( '--type-set foo-type=.foo --foo-type', $foo );
-check_with( '--type-set foo-type=.foo --type=foo-type', $foo );
-check_with( '--type-set foo-type=.foo,.bar --foo-type', $foo_bar );
-check_with( '--type-set foo-type=.foo --type-set bar-type=.bar --foo-type --bar-type', $foo_bar );
-
-# check --type-add
-check_with( '--type-add xml=.foo --xml', $foo_xml );
-check_with( '--type-add xml=.foo,.bar --xml', $foo_bar_xml );
-
-# check that --type-set redefines
-check_with( '--type-set cc=.foo --cc', $foo );
-
-# check that builtin types cannot be changed
-BUILTIN: {
-    my @builtins = qw( make skipped text binary );
-    my $ncalls = @builtins * 2 + 1;
-    my $ntests = 2 * $ncalls; # each check_stderr() does 2 tests
-
-    for my $builtin ( @builtins ) {
-        check_stderr( "--type-set $builtin=.foo",
-            qq{ack: --type-set: Builtin type "$builtin" cannot be changed.} );
-        check_stderr( "--type-add $builtin=.foo",
-            qq{ack: --type-add: Builtin type "$builtin" cannot be changed.} );
+    foreach my $line ( @expected ) {
+        $line =~ s/^(.*?)(?=:)/File::Next::reslash( $1 )/ge;
     }
 
-    # check that there is a warning for creating new types with --append_type
-    check_stderr( '--type-add foo=.foo --foo',
-        q{ack: --type-add: Type "foo" does not exist, creating with ".foo" ...} );
+    my @args    = ( '--type=perl', '--nogroup', '--noheading', '--nocolor' );
+    my @files   = ( 't/swamp' );
+    my $target  = 'perl';
+
+    my @results = run_ack( @args, $target, @files );
+    sets_match( \@results, \@expected );
 }
 
+TEST_NOTYPE: {
+    my @expected = split( /\n/, <<'EOF' );
+t/swamp/c-header.h:1:/*    perl.h
+t/swamp/Makefile:1:# This Makefile is for the ack extension to perl.
+EOF
 
-sub check_with {
-    my @options = split ' ', shift;
-    my $expected = shift;
+    foreach my $line ( @expected ) {
+        $line =~ s/^(.*?)(?=:)/File::Next::reslash( $1 )/ge;
+    }
 
-    my @expected = sort @{$expected};
+    my @args    = ( '--type=noperl', '--nogroup', '--noheading', '--nocolor' );
+    my @files   = ( 't/swamp' );
+    my $target  = 'perl';
 
-    my @results = run_ack( 't/swamp/', 't/etc/', '-f', @options );
-    @results = grep { !/~$/ } @results; # Don't see my vim backup files
-
-    local $Test::Builder::Level = $Test::Builder::Level + 1;
-    return sets_match( \@results, \@expected, "File lists match via @options" );
+    my @results = run_ack( @args, $target, @files );
+    sets_match( \@results, \@expected );
 }
 
-sub check_stderr {
-    my @options = split ' ', shift;
-    my $expected = shift;
+TEST_UNKNOWN_TYPE: {
+    my @args   = ( '--ignore-ack-defaults', '--type-add=perl:ext:pl',
+        '--type=foo', '--nogroup', '--noheading', '--nocolor' );
+    my @files  = ( 't/swamp' );
+    my $target = 'perl';
 
-    my ($stdout, $stderr) = run_ack_with_stderr( '-f', @options );
+    my ( $stdout, $stderr ) = run_ack_with_stderr( @args, $target, @files );
 
-    local $Test::Builder::Level = $Test::Builder::Level + 1;
-    is( $stderr->[0], $expected, "Located stderr message: $expected" );
-    is( @{$stderr}, 1, "Only one line of stderr for message: $expected" );
+    is scalar(@$stdout), 0;
+    ok scalar(@$stderr) > 0;
+    like $stderr->[0], qr/Unknown type 'foo'/ or diag(explain($stderr));
+}
 
-    return;
+TEST_NOTYPES: {
+    my @args   = ( '--ignore-ack-defaults', '--type=perl', '--nogroup',
+        '--noheading', '--nocolor' );
+    my @files  = ( 't/swamp' );
+    my $target = 'perl';
+
+    my ( $stdout, $stderr ) = run_ack_with_stderr( @args, $target, @files );
+
+    is scalar(@$stdout), 0;
+    ok scalar(@$stderr) > 0;
+    like $stderr->[0], qr/Unknown type 'perl'/ or diag(explain($stderr));
 }

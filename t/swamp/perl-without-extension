@@ -1,4 +1,4 @@
-#!/usr/bin/perl-5.14.1 -w
+#!/usr/bin/perl -w
 
 use strict;
 use warnings;

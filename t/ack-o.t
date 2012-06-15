@@ -13,7 +13,7 @@ prep_environment();
 
 NO_O: {
     my @files = qw( t/text/boy-named-sue.txt );
-    my @args = qw( the\\s+\\S+ --text );
+    my @args = qw( the\\s+\\S+ );
     my @expected = split( /\n/, <<'EOF' );
         But the meanest thing that he ever did
         But I made me a vow to the moon and stars
@@ -29,15 +29,13 @@ NO_O: {
 EOF
     s/^\s+// for @expected;
 
-    my @results = run_ack( @args, @files );
-
-    lists_match( \@results, \@expected, 'Find all the things without -o' );
+    ack_lists_match( [ @args, @files ], \@expected, 'Find all the things without -o' );
 }
 
 
 WITH_O: {
     my @files = qw( t/text/boy-named-sue.txt );
-    my @args = qw( the\\s+\\S+ --text -o );
+    my @args = qw( the\\s+\\S+ -o );
     my @expected = split( /\n/, <<'EOF' );
         the meanest
         the moon
@@ -57,16 +55,14 @@ WITH_O: {
 EOF
     s/^\s+// for @expected;
 
-    my @results = run_ack( @args, @files );
-
-    lists_match( \@results, \@expected, 'Find all the things with -o' );
+    ack_lists_match( [ @args, @files ], \@expected, 'Find all the things with -o' );
 }
 
 
 # give a output function and find match in multiple files (so print filenames, just like grep -o)
 WITH_OUTPUT: {
     my @files = qw( t/text/ );
-    my @args = qw/ --output=x$1x -a question(\\S+) /;
+    my @args = qw/ --output=x$1x question(\\S+) /;
 
     my @target_file = (
         File::Next::reslash( 't/text/science-of-myth.txt' ),
@@ -78,7 +74,7 @@ WITH_OUTPUT: {
         "$target_file[1]:21:x.x",
     );
 
-    my @results = run_ack( @args, @files );
-
-    sets_match( \@results, \@expected, 'Find all the things with --output function' );
+    ack_sets_match( [ @args, @files ], \@expected, 'Find all the things with --output function' );
 }
+
+done_testing();

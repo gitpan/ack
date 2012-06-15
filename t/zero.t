@@ -1,9 +1,17 @@
 #!perl
 
+=pod
+
+Long ago there was a problem where ack would ignore a file named
+"0" because 0 is a false value in Perl.  Here we check to make sure
+we don't fall prey to that again.
+
+=cut
+
 use warnings;
 use strict;
 
-use Test::More tests => 4;
+use Test::More tests => 3;
 use File::Next 0.22;
 
 use lib 't';
@@ -22,6 +30,7 @@ my @actual_swamp_perl = map { "$swamp/$_" } qw(
     Makefile.PL
     options.pl
     perl.cgi
+    perl.handler.pod
     perl.pl
     perl.pm
     perl.pod
@@ -29,22 +38,8 @@ my @actual_swamp_perl = map { "$swamp/$_" } qw(
     perl-without-extension
 );
 
-HANDLE_ZEROES: {
-    my $iter =
-        File::Next::files( {
-            file_filter => sub { return is_filetype( $File::Next::name, 'perl' ) }, ## no critic
-            descend_filter => \&App::Ack::ignoredir_filter,
-        }, $swamp );
-
-    my @files = slurp( $iter );
-
-    sets_match( \@files, \@actual_swamp_perl, 'HANDLE_ZEROES' );
-}
-
-
 DASH_F: {
     my @args = qw( -f --perl );
-    my @results = run_ack( @args, $swamp );
 
-    sets_match( \@results, \@actual_swamp_perl, 'DASH_F' );
+    ack_sets_match( [ @args, $swamp ], \@actual_swamp_perl, 'DASH_F' );
 }

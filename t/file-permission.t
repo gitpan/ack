@@ -1,5 +1,7 @@
 #!perl
 
+# Make sure ack can handle files it can't read.
+
 use warnings;
 use strict;
 
@@ -8,7 +10,9 @@ use Test::More;
 use lib 't';
 use Util;
 
-use constant NTESTS => 10;
+use File::Spec;
+
+use constant NTESTS => 14;
 
 plan skip_all => q{Can't be checked under Win32} if is_win32;
 plan skip_all => q{Can't be run as root}         if $> == 0;
@@ -35,6 +39,11 @@ SKIP: {
     # --count takes a different execution path
     check_with( 'regex', '--count', $program );
 
+    my($volume,$path) = File::Spec->splitpath($program);
+
+    # Run another test on the directory containing the read only file
+    check_with( 'notinthere', $volume . $path );
+
     # change permissions back
     chmod $old_mode, $program;
     is( $nchanged, 1, sprintf( 'chmodded %s back to %o', $program, $old_mode ) );
@@ -44,8 +53,8 @@ sub check_with {
     local $Test::Builder::Level = $Test::Builder::Level + 1;
 
     my ($stdout, $stderr) = run_ack_with_stderr( @_ );
-    is( get_rc(), 1, 'Search normal: exit code ONE for no output for GREP compatibility' );
-            ## XXX Should be TWO for best GREP compatibility since there was an error ...
+    is( get_rc(), 1, 'Search normal: exit code ONE for no output for grep compatibility' );
+            ## XXX Should be TWO for best grep compatibility since there was an error ...
             ##      but we agreed that wasn't required
     is( scalar @{$stdout}, 0, 'Search normal: no normal output' );
     is( scalar @{$stderr}, 1, 'Search normal: one line of stderr output' );

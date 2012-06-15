@@ -19,15 +19,15 @@ my $line_end    = "\e[0m\e[K";
 
 NORMAL_COLOR: {
     my @files = qw( t/text/boy-named-sue.txt );
-    my @args = qw( called --color --text );
+    my @args = qw( called --color );
     my @results = run_ack( @args, @files );
 
-    ok( grep { /\e/ } @results, 'normal match highlighted' );
+    ok( grep { /\e/ } @results, 'normal match highlighted' ) or diag(explain(\@results));
 }
 
 MATCH_WITH_BACKREF: {
     my @files = qw( t/text/boy-named-sue.txt );
-    my @args = ( '(called).*\1',  '--text', '--color' );
+    my @args = ( '(called).*\1' );
     my @results = run_ack( @args, @files );
 
     is( @results, 1, 'backref pattern matches once' );
@@ -37,7 +37,7 @@ MATCH_WITH_BACKREF: {
 
 BRITISH_COLOR: {
     my @files = qw( t/text/boy-named-sue.txt );
-    my @args = qw( called --colour --text );
+    my @args = qw( called --colour );
     my @results = run_ack( @args, @files );
 
     ok( grep { /\e/ } @results, 'normal match highlighted' );
@@ -45,7 +45,7 @@ BRITISH_COLOR: {
 
 MULTIPLE_MATCHES: {
     my @files = qw( t/text/freedom-of-choice.txt );
-    my @args = qw( v.+?m|c.+?n -w --color --text );
+    my @args = qw( v.+?m|c.+?n -w --color );
     my @results = run_ack( @args, @files );
 
     is( @results, 1, 'multiple matches on 1 line' );

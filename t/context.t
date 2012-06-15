@@ -3,8 +3,8 @@
 use warnings;
 use strict;
 
-use Test::More tests => 22;
-use File::Next 0.34; # for reslash function
+use Test::More tests => 20;
+use File::Next (); # for reslash function
 
 use lib 't';
 use Util;
@@ -22,7 +22,7 @@ EOF
 
     my $regex = 'left';
     my @files = qw( t/text/boy-named-sue.txt );
-    my @args = ( '--text', '-B1', $regex );
+    my @args = ( '-B1', $regex );
 
     ack_lists_match( [ @args, @files ], \@expected, "Looking for $regex - before" );
 }
@@ -44,7 +44,7 @@ EOF
 
     my $regex = 'laugh';
     my @files = qw( t/text );
-    my @args = ( '--text', '-B2', $regex );
+    my @args = ( '-B2', $regex );
 
     ack_lists_match( [ @args, @files ], \@expected, "Looking for $regex - before with line numbers" );
 }
@@ -61,7 +61,7 @@ EOF
 
     my $regex = '[nN]amed Sue';
     my @files = qw( t/text/boy-named-sue.txt );
-    my @args = ( '--text', '-A2', $regex );
+    my @args = ( '-A2', $regex );
 
     ack_lists_match( [ @args, @files ], \@expected, "Looking for $regex - after" );
 }
@@ -78,7 +78,7 @@ EOF
 
     my $regex = 'giggle';
     my @files = qw( t/text/boy-named-sue.txt );
-    my @args = ( '--text', '-C', $regex );
+    my @args = ( '-C', $regex );
 
     ack_lists_match( [ @args, @files ], \@expected, "Looking for $regex - context defaults to 2" );
 }
@@ -95,7 +95,7 @@ EOF
 
     my $regex = 'giggle';
     my @files = qw( t/text/boy-named-sue.txt );
-    my @args = ( '--text', '-1', '-C', $regex );
+    my @args = ( '-1', '-C', $regex );
 
     ack_lists_match( [ @args, @files ], \@expected, "Looking for $regex with -1" );
 }
@@ -121,14 +121,14 @@ EOF
     my $regex = 'ya';
 
     my @files = qw( t/text/boy-named-sue.txt );
-    my @args = ( '--text', '-m3', '-C1', $regex );
+    my @args = ( '-m3', '-C1', $regex );
 
     ack_lists_match( [ @args, @files ], \@expected, "Looking for $regex with -m3" );
 }
 
 # highlighting works with context
 HIGHLIGHTING: {
-    my @ack_args = qw( July -C5 --text --color );
+    my @ack_args = qw( July -C5 --color );
     my @results = pipe_into_ack( 't/text/4th-of-july.txt', @ack_args );
     my @escaped_lines = grep { /\e/ } @results;
     is( scalar @escaped_lines, 2, 'Only two lines are highlighted' );
@@ -181,29 +181,15 @@ EOF
 
     my $regex = 'left';
     my @files = qw( t/text/ );
-    my @args = ( '--text', '--group', '-B1', '--sort-files', $regex );
+    my @args = ( '--group', '-B1', '--sort-files', $regex );
 
     ack_lists_match( [ @args, @files ], \@expected, "Looking for $regex in multiple files with grouping" );
-}
-
-# context does nothing ack -g
-ACK_G: {
-    my @expected = qw(
-        t/swamp/html.htm
-        t/swamp/html.html
-    );
-    my $regex = 'swam.......htm';
-
-    my @files = qw( t/ );
-    my @args = ( '-C2', '-g', $regex );
-
-    ack_sets_match( [ @files, @args ], \@expected, "Looking for $regex - no change with -g" );
 }
 
 # ack -o disables context
 WITH_O: {
     my @files = qw( t/text/boy-named-sue.txt );
-    my @args = qw( the\\s+\\S+ --text -o -C2 );
+    my @args = qw( the\\s+\\S+ -o -C2 );
     my @expected = split( /\n/, <<'EOF' );
         the meanest
         the moon

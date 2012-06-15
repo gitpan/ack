@@ -4,6 +4,8 @@ use App::Ack;
 
 use warnings;
 use strict;
+use overload
+    '""' => 'name';
 
 sub FAIL {
     require Carp;
@@ -27,7 +29,7 @@ If there's a failure, it throws a warning and returns an empty list.
 =cut
 
 sub new {
-    FAIL();
+    return FAIL();
 }
 
 =head2 $res->name()
@@ -37,7 +39,7 @@ Returns the name of the resource.
 =cut
 
 sub name {
-    FAIL();
+    return FAIL();
 }
 
 =head2 $res->is_binary()
@@ -48,7 +50,7 @@ match in the file, then ack will not try to display a match line.
 =cut
 
 sub is_binary {
-    FAIL();
+    return FAIL();
 }
 
 
@@ -67,7 +69,7 @@ have to do the line-by-line, too.
 =cut
 
 sub needs_line_scan {
-    FAIL();
+    return FAIL();
 }
 
 =head2 $res->reset()
@@ -79,7 +81,7 @@ is true.
 =cut
 
 sub reset {
-    FAIL();
+    return FAIL();
 }
 
 =head2 $res->next_text()
@@ -93,7 +95,7 @@ the text.  This basically emulates a call to C<< <$fh> >>.
 =cut
 
 sub next_text {
-    FAIL();
+    return FAIL();
 }
 
 =head2 $res->close()
@@ -103,7 +105,17 @@ API: Close the resource.
 =cut
 
 sub close {
-    FAIL();
+    return FAIL();
+}
+
+=head2 $res->clone
+
+Clones this resource.
+
+=cut
+
+sub clone {
+    return FAIL();
 }
 
 1;

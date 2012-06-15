@@ -14,7 +14,6 @@ prep_environment();
 my @tests = (
     [ 'illegal pattern',  '?foo', 't/' ],
     [ 'illegal -g regex', '-g', '?foo', 't/' ],
-    [ 'illegal -G regex', 'foo', '-G', '?foo', 't/' ],
 );
 
 plan tests => @tests * 4;

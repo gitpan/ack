@@ -1,5 +1,7 @@
 #!perl -w
 
+# This file validates behaviors of specifying files on the command line.
+
 use warnings;
 use strict;
 
@@ -29,7 +31,7 @@ EOF
     ack_sets_match( [ @args, @files ], \@expected, q{One hit for specifying a dir} );
 }
 
-
+# Even a .bak file gets searched if you specify it on the command line.
 SPECIFYING_A_BAK_FILE: {
     my @expected = split( /\n/, <<"EOF" );
 $files[0]:19:notawordhere

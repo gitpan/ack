@@ -9,8 +9,56 @@ This tests whether L<ack(1)>'s command line options work as expected.
 
 =cut
 
-use Test::More tests => 51;
-use File::Next 0.34; # For the reslash() function
+use Test::More;
+use File::Next (); # For the reslash() function
+
+my @other_long_opts = qw(
+    --passthru
+    --output
+    --match
+    -m
+    --max-count
+    --with-filename
+    --no-filename
+    --count
+    --column
+    --after-context
+    --before-context
+    --context
+    --print0
+    --pager
+    --nopager
+    --[no]heading
+    --[no]break
+    --group
+    --nogroup
+    --[no]color
+    --[no]colour
+    --color-filename
+    --color-match
+    --color-lineno
+    --flush
+    --sort-files
+    --show-types
+    --[no]ignore-dir
+    --recurse
+    --no-recurse
+    --type
+    --type-set
+    --type-add
+    --[no]follow
+    --noenv
+    --ackrc
+    --man
+    --thpppt
+    --bar
+    --dump
+    --ignore-ack-defaults
+);
+
+# --no-recurse is inconsistent w/--nogroup
+
+plan tests => 55 + @other_long_opts;
 
 use lib 't';
 use Util;
@@ -154,11 +202,28 @@ for my $arg ( qw( -L --files-without-matches ) ) {
     option_in_usage( $arg );
 }
 
+LINE: {
+    my @files = 't/swamp/options.pl';
+    my $opt   = '--line=1';
+    my @lines = run_ack( $opt, @files );
+
+    is @lines, 1, 'only one line of output should be returned';
+    is $lines[0], '#!/usr/bin/env perl', 'The first line should match';
+    option_in_usage( '--line' );
+}
+
+foreach my $opt (@other_long_opts) {
+    option_in_usage( $opt );
+}
+
 my $usage;
 sub option_in_usage {
     my $opt = shift;
 
-    $usage = qx{ $^X -T $ack --help } unless $usage;
+    unless( $usage ) {
+        ( $usage, undef ) = run_ack_with_stderr( '--help' );
+        $usage            = join( "\n", @{$usage} );
+    }
 
     local $Test::Builder::Level = $Test::Builder::Level + 1;
     return ok( $usage =~ qr/\Q$opt\E\b/s, "Found $opt in usage" );

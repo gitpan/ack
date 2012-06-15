@@ -3,7 +3,7 @@
 use warnings;
 use strict;
 
-use Test::More tests => 12;
+use Test::More tests => 20;
 
 use lib 't';
 use Util;
@@ -15,11 +15,10 @@ DASH_L: {
         t/text/science-of-myth.txt
     );
 
+    my @args  = qw( religion -i -a -l );
     my @files = qw( t/text );
-    my @args = qw( religion -i -a -l );
-    my @results = run_ack( @args, @files );
 
-    sets_match( \@results, \@expected, 'Looking for religion with -l' );
+    ack_sets_match( [ @args, @files ], \@expected, 'Looking for religion with -l' );
 }
 
 DASH_CAPITAL_L: {
@@ -31,13 +30,21 @@ DASH_CAPITAL_L: {
         t/text/shut-up-be-happy.txt
     );
 
-    # -L and -l -v are identical
-    for my $switches ( (['-L'], ['-l','-v']) ) {
-        my @files = qw( t/text );
-        my @args = ( 'religion', '-a', @{$switches} );
-        my @results = run_ack( @args, @files );
+    my @switches = (
+        ['-L'],
+        ['--files-without-matches'],
 
-        sets_match( \@results, \@expected, "Looking for religion with @{$switches}" );
+        ['-l','-v'],
+        ['-l','--invert-match'],
+        ['--files-with-matches','-v'],
+        ['--files-with-matches','--invert-match'],
+    );
+    # -L and -l -v are identical
+    for my $switches ( @switches ) {
+        my @files = qw( t/text );
+        my @args  = ( 'religion', '-a', @{$switches} );
+
+        ack_sets_match( [ @args, @files ], \@expected, "Looking for religion with @{$switches}" );
     }
 }
 
@@ -51,11 +58,10 @@ DASH_C: {
         t/text/shut-up-be-happy.txt:0
     );
 
+    my @args  = qw( boy -i -a -c );
     my @files = qw( t/text );
-    my @args = qw( boy -i -a -c );
-    my @results = run_ack( @args, @files );
 
-    sets_match( \@results, \@expected, 'Boy counts' );
+    ack_sets_match( [ @args, @files ], \@expected, 'Boy counts' );
 }
 
 DASH_LC: {
@@ -63,11 +69,10 @@ DASH_LC: {
         t/text/science-of-myth.txt:2
     );
 
+    my @args  = qw( religion -i -a -l -c );
     my @files = qw( t/text );
-    my @args = qw( religion -i -a -l -c );
-    my @results = run_ack( @args, @files );
 
-    sets_match( \@results, \@expected, 'Religion counts -l -c' );
+    ack_sets_match( [ @args, @files ], \@expected, 'Religion counts -l -c' );
 }
 
 PIPE_INTO_C: {
@@ -76,5 +81,7 @@ PIPE_INTO_C: {
     my @results = pipe_into_ack( $file, @args );
 
     is( scalar @results, 1, 'Piping into ack --count should return one line of results' );
-    is( $results[0], '2', 'Piping into ack --count should return "-:<count>"' );
+    is( $results[0], '2', 'Piping into ack --count should return "<count>"' );
 }
+
+done_testing();

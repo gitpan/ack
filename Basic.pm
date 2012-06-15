@@ -1,12 +1,3 @@
-package App::Ack::Plugin::Basic;
-
-=head1 SYNOPSIS
-
-Container for the Repository and Resources necessary.
-
-=cut
-
-
 package App::Ack::Resource::Basic;
 
 =head1 App::Ack::Resource::Basic
@@ -16,10 +7,7 @@ package App::Ack::Resource::Basic;
 use warnings;
 use strict;
 
-use App::Ack;
-use App::Ack::Resource;
-
-our @ISA = qw( App::Ack::Resource );
+use base 'App::Ack::Resource';
 
 =head1 METHODS
 
@@ -37,23 +25,19 @@ sub new {
     my $filename = shift;
 
     my $self = bless {
-        filename        => $filename,
-        fh              => undef,
-        could_be_binary => undef,
-        opened          => undef,
-        id              => undef,
+        filename => $filename,
+        fh       => undef,
+        opened   => undef,
     }, $class;
 
     if ( $self->{filename} eq '-' ) {
         $self->{fh} = *STDIN;
-        $self->{could_be_binary} = 0;
     }
     else {
         if ( !open( $self->{fh}, '<', $self->{filename} ) ) {
             App::Ack::warn( "$self->{filename}: $!" );
             return;
         }
-        $self->{could_be_binary} = 1;
     }
 
     return $self;
@@ -69,23 +53,6 @@ sub name {
     my $self = shift;
 
     return $self->{filename};
-}
-
-=head2 $res->is_binary()
-
-Tells whether the resource is binary.  If it is, and ack finds a
-match in the file, then ack will not try to display a match line.
-
-=cut
-
-sub is_binary {
-    my $self = shift;
-
-    if ( $self->{could_be_binary} ) {
-        return -B $self->{filename};
-    }
-
-    return 0;
 }
 
 
@@ -181,59 +148,17 @@ sub close {
     return;
 }
 
-package App::Ack::Repository::Basic;
+=head2 $res->clone()
 
-=head1 App::Ack::Repository::Basic
-
-=cut
-
-our @ISA = qw( App::Ack::Repository );
-
-
-use warnings;
-use strict;
-
-sub new {
-    my $class    = shift;
-    my $filename = shift;
-
-    my $self = bless {
-        filename => $filename,
-        nexted   => 0,
-    }, $class;
-
-    return $self;
-}
-
-=head2 next_resource
-
-Returns a resource object for the next resource in the repository.
+API: Clone this resource.
 
 =cut
 
-sub next_resource {
-    my $self = shift;
+sub clone {
+    my ( $self ) = @_;
 
-    return if $self->{nexted};
-    $self->{nexted} = 1;
-
-    return App::Ack::Resource::Basic->new( $self->{filename} );
+    return __PACKAGE__->new($self->name);
 }
-
-=head2 close
-
-Does nothing.  For the base repository, the opening & closing are
-handled at the resource level.
-
-If this repository were, say, an Excel workbook, you'd probably
-close the file.  If it were a database, you'd close the database
-connection.
-
-=cut
-
-sub close {
-}
-
 
 
 1;

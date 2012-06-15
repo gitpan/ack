@@ -17,10 +17,9 @@ TRAILING_PUNC: {
     );
 
     my @files = qw( t/text );
-    my @args = qw( Sue! -w -h --text );
-    my @results = run_ack( @args, @files );
+    my @args = qw( Sue! -w -h );
 
-    lists_match( \@results, \@expected, 'Looking for Sue!' );
+    ack_lists_match( [ @args, @files ], \@expected, 'Looking for Sue!' );
 }
 
 TRAILING_METACHAR_BACKSLASH_W: {
@@ -30,10 +29,9 @@ TRAILING_METACHAR_BACKSLASH_W: {
     );
 
     my @files = qw( t/text );
-    my @args = qw( mu\w -w -h --text );
-    my @results = run_ack( @args, @files );
+    my @args = qw( mu\w -w -h );
 
-    lists_match( \@results, \@expected, 'Looking for mu\\w' );
+    ack_lists_match( [ @args, @files ], \@expected, 'Looking for mu\\w' );
 }
 
 
@@ -45,10 +43,9 @@ TRAILING_METACHAR_DOT: {
     );
 
     my @files = qw( t/text );
-    my @args = ( 'mu.', qw( -w -h --text ) );
-    my @results = run_ack( @args, @files );
+    my @args = ( 'mu.', qw( -w -h ) );
 
-    lists_match( \@results, \@expected, 'Looking for mu.' );
+    ack_lists_match( [ @args, @files ], \@expected, 'Looking for mu.' );
 }
 
-
+done_testing();

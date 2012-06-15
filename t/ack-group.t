@@ -30,8 +30,8 @@ EOF
     my @files = sort glob( 't/text/*.txt' );
 
     my @arg_sets = (
-        [qw( -a --nogroup --nocolor free )],
-        [qw( -a --nobreak --noheading --nocolor free )],
+        [qw( --nogroup --nocolor free )],
+        [qw( --nobreak --noheading --nocolor free )],
     );
     for my $set ( @arg_sets ) {
         my @results = run_ack( @{$set}, @files );
@@ -58,8 +58,8 @@ EOF
 
     my @files = sort glob( 't/text/*.txt' );
     my @arg_sets = (
-        [qw( -a --group --nocolor free )],
-        [qw( -a --heading --break --nocolor free )],
+        [qw( --group --nocolor free )],
+        [qw( --heading --break --nocolor free )],
     );
     for my $set ( @arg_sets ) {
         my @results = run_ack( @{$set}, @files );
@@ -84,7 +84,7 @@ EOF
 
     my @files = sort glob( 't/text/*.txt' );
     my @arg_sets = (
-        [qw( -a --heading --nobreak --nocolor free )],
+        [qw( --heading --nobreak --nocolor free )],
     );
     for my $set ( @arg_sets ) {
         my @results = run_ack( @{$set}, @files );
@@ -109,7 +109,7 @@ EOF
     my @files = sort glob( 't/text/*.txt' );
 
     my @arg_sets = (
-        [qw( -a --break --noheading --nocolor free )],
+        [qw( --break --noheading --nocolor free )],
     );
     for my $set ( @arg_sets ) {
         my @results = run_ack( @{$set}, @files );
