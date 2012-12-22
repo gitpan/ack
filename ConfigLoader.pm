@@ -6,9 +6,9 @@ use warnings;
 use App::Ack ();
 use App::Ack::Filter;
 use App::Ack::Filter::Default;
-use Carp ();
-use Getopt::Long; # Must be 2.36, but we can't check for that in the use.
-use Text::ParseWords ();
+use Carp 1.22 ();
+use Getopt::Long 2.36 ();
+use Text::ParseWords 3.1 ();
 
 =head1 App::Ack::ConfigLoader
 
@@ -19,6 +19,33 @@ use Text::ParseWords ();
 
 
 =cut
+
+my @INVALID_COMBINATIONS;
+
+BEGIN {
+    my @context  = qw( -A -B -C --after-context --before-context --context );
+    my @pretty   = qw( --heading --group --break );
+    my @filename = qw( -h -H --with-filename --no-filename );
+
+    @INVALID_COMBINATIONS = (
+        # XXX normalize
+        [qw(-l)]                 => [@context, @pretty, @filename, qw(-L -o --passthru --output --max-count --column -f -g --show-types)],
+        [qw(-L)]                 => [@context, @pretty, @filename, qw(-l -o --passthru --output --max-count --column -f -g --show-types -c --count)],
+        [qw(--line)]             => [@context, @pretty, @filename, qw(-l --files-with-matches --files-without-matches -L -o --passthru --match -m --max-count -1 -c --count --column --print0 -f -g --show-types)],
+        [qw(-o)]                 => [@context, qw(--output -c --count --column --column -f --show-types)],
+        [qw(--passthru)]         => [@context, qw(--output --column -m --max-count -1 -c --count -f -g)],
+        [qw(--output)]           => [qw(-c --count -f -g)],
+        [qw(--match)]            => [qw(-f -g)],
+        [qw(-m --max-count)]     => [qw(-1 -f -g -c --count)],
+        [qw(-h --no-filename)]   => [qw(-H --with-filename -f -g --group --heading)],
+        [qw(-H --with-filename)] => [qw(-h --no-filename -f -g)],
+        [qw(-c --count)]         => [@context, @pretty, qw(--column -f -g)],
+        [qw(--column)]           => [qw(-f -g)],
+        [@context]               => [qw(-f -g)],
+        [qw(-f)]                 => [qw(-g), @pretty],
+        [qw(-g)]                 => [qw(-f), @pretty],
+    );
+}
 
 sub process_filter_spec {
     my ( $spec ) = @_;
@@ -47,7 +74,7 @@ sub process_filter_spec {
 sub process_filetypes {
     my ( $opt, $arg_sources ) = @_;
 
-    Getopt::Long::Configure('default'); # start with default options
+    Getopt::Long::Configure('default', 'no_auto_help', 'no_auto_version'); # start with default options, minus some annoying ones
     Getopt::Long::Configure(
         'no_ignore_case',
         'no_auto_abbrev',
@@ -93,9 +120,17 @@ sub process_filetypes {
         };
     };
 
+    my $delete_spec = sub {
+        my ( undef, $name ) = @_;
+
+        delete $App::Ack::mappings{$name};
+        delete $additional_specs{$name . '!'};
+    };
+
     my %type_arg_specs = (
         'type-add=s' => $add_spec,
         'type-set=s' => $set_spec,
+        'type-del=s' => $delete_spec,
     );
 
     for ( my $i = 0; $i < @{$arg_sources}; $i += 2) {
@@ -111,10 +146,10 @@ sub process_filetypes {
         }
     }
 
-    $additional_specs{'known-types'} = sub {
+    $additional_specs{'k|known-types'} = sub {
         my ( undef, $value ) = @_;
 
-        my @filters = map { @$_ } values(%App::Ack::mappings);
+        my @filters = map { @{$_} } values(%App::Ack::mappings);
 
         push @{ $opt->{'filters'} }, @filters;
     };
@@ -122,16 +157,49 @@ sub process_filetypes {
     return \%additional_specs;
 }
 
+sub removed_option {
+    my ( $option, $explanation ) = @_;
+
+    $explanation ||= '';
+    return sub {
+        warn "Option '$option' is not valid in ack 2\n$explanation";
+        exit 1;
+    };
+}
+
 sub get_arg_spec {
     my ( $opt, $extra_specs ) = @_;
 
+    my $dash_a_explanation = <<EOT;
+This is because we now have -k/--known-types which makes it only select files
+of known types, rather than any text file (which is the behavior of ack 1.x).
+EOT
+
+=for Adding-Options
+
+    *** IF YOU ARE MODIFYING ACK PLEASE READ THIS ***
+
+    If you plan to add a new option to ack, please make sure of
+    the following:
+
+    * Your new option has a test underneath the t/ directory.
+    * Your new option is explained when a user invokes ack --help.
+      (See App::Ack::show_help)
+    * Your new option is explained when a user invokes ack --man.
+      (See the POD at the end of ./ack)
+    * Add your option to t/config-loader.t
+    * Go through the list of options already available, and consider
+      whether your new option can be considered mutually exclusive
+      with another option.
+=cut
     return {
         1                   => sub { $opt->{1} = $opt->{m} = 1 },
         'A|after-context=i' => \$opt->{after_context},
         'B|before-context=i'
                             => \$opt->{before_context},
         'C|context:i'       => sub { shift; my $val = shift; $opt->{before_context} = $opt->{after_context} = ($val || 2) },
-        'a|all-types'       => \$opt->{all},
+        'a'                 => removed_option('-a', $dash_a_explanation),
+        'all'               => removed_option('--all', $dash_a_explanation),
         'break!'            => \$opt->{break},
         c                   => \$opt->{count},
         'color|colour!'     => \$opt->{color},
@@ -140,6 +208,7 @@ sub get_arg_spec {
         'color-lineno=s'    => \$ENV{ACK_COLOR_LINENO},
         'column!'           => \$opt->{column},
         count               => \$opt->{count},
+        'create-ackrc'      => sub { App::Ack::create_ackrc(); exit; },
         'env!'              => sub {
             my ( undef, $value ) = @_;
 
@@ -153,6 +222,7 @@ sub get_arg_spec {
         flush               => \$opt->{flush},
         'follow!'           => \$opt->{follow},
         g                   => \$opt->{g},
+        G                   => removed_option('-G'),
         'group!'            => sub { shift; $opt->{heading} = $opt->{break} = shift },
         'heading!'          => \$opt->{heading},
         'h|no-filename'     => \$opt->{h},
@@ -205,6 +275,7 @@ sub get_arg_spec {
         'print0'            => \$opt->{print0},
         'Q|literal'         => \$opt->{Q},
         'r|R|recurse'       => sub { $opt->{n} = 0 },
+        's'                 => \$opt->{dont_report_bad_filenames},
         'show-types'        => \$opt->{show_types},
         'smart-case!'       => \$opt->{smart_case},
         'sort-files'        => \$opt->{sort_files},
@@ -225,7 +296,8 @@ sub get_arg_spec {
                 Carp::croak( "Unknown type '$value'" );
             }
         },
-        'u|unrestricted'    => \$opt->{u},
+        'u'                 => removed_option('-u'),
+        'unrestricted'      => removed_option('--unrestricted'),
         'v|invert-match'    => \$opt->{v},
         'w|word-regexp'     => \$opt->{w},
         'x'                 => sub { $opt->{files_from} = '-' },
@@ -233,13 +305,7 @@ sub get_arg_spec {
         'version'           => sub { App::Ack::print_version_statement(); exit; },
         'help|?:s'          => sub { shift; App::Ack::show_help(@_); exit; },
         'help-types'        => sub { App::Ack::show_help_types(); exit; },
-        'man'               => sub {
-            require Pod::Usage;
-            Pod::Usage::pod2usage({
-                -verbose => 2,
-                -exitval => 0,
-            });
-        }, # man sub
+        'man'               => sub { App::Ack::show_man(); exit; },
         $extra_specs ? %{$extra_specs} : (),
     }; # arg_specs
 }
@@ -247,11 +313,35 @@ sub get_arg_spec {
 sub process_other {
     my ( $opt, $extra_specs, $arg_sources ) = @_;
 
-    Getopt::Long::Configure('default'); # start with default options
+    Getopt::Long::Configure('default', 'no_auto_help', 'no_auto_version'); # start with default options, minus some annoying ones
     Getopt::Long::Configure(
         'bundling',
         'no_ignore_case',
     );
+
+    my $argv_source;
+    my $is_help_types_active;
+
+    for ( my $i = 0; $i < @{$arg_sources}; $i += 2 ) {
+        my ( $source_name, $args ) = @{$arg_sources}[ $i, $i + 1 ];
+
+        if ( $source_name eq 'ARGV' ) {
+            $argv_source = $args;
+            last;
+        }
+    }
+
+    if ( $argv_source ) { # this *should* always be true, but you never know...
+        my @copy = @{$argv_source};
+
+        Getopt::Long::Configure('pass_through');
+
+        Getopt::Long::GetOptionsFromArray( \@copy,
+            'help-types' => \$is_help_types_active,
+        );
+
+        Getopt::Long::Configure('no_pass_through');
+    }
 
     my $arg_specs = get_arg_spec($opt, $extra_specs);
 
@@ -267,8 +357,10 @@ sub process_other {
                 Getopt::Long::GetOptionsFromString( $args, %{$arg_specs} );
         }
         if ( !$ret ) {
-            my $where = $source_name eq 'ARGV' ? 'on command line' : "in $source_name";
-            App::Ack::die( "Invalid option $where" );
+            if ( !$is_help_types_active ) {
+                my $where = $source_name eq 'ARGV' ? 'on command line' : "in $source_name";
+                App::Ack::die( "Invalid option $where" );
+            }
         }
         if ( $opt->{noenv_seen} ) {
             App::Ack::die( "--noenv found in $source_name" );
@@ -287,7 +379,7 @@ sub should_dump_options {
         my ( $name, $options ) = @{$sources}[$i, $i + 1];
         if($name eq 'ARGV') {
             my $dump;
-            Getopt::Long::Configure('default', 'pass_through');
+            Getopt::Long::Configure('default', 'pass_through', 'no_auto_help', 'no_auto_version');
             Getopt::Long::GetOptionsFromArray($options,
                 'dump' => \$dump,
             );
@@ -302,7 +394,7 @@ sub explode_sources {
 
     my @new_sources;
 
-    Getopt::Long::Configure('default', 'pass_through');
+    Getopt::Long::Configure('default', 'pass_through', 'no_auto_help', 'no_auto_version');
 
     my %opt;
     my $arg_spec = get_arg_spec(\%opt);
@@ -313,10 +405,17 @@ sub explode_sources {
         # XXX refactor?
         if ( $arg =~ /(\w+)=/) {
             $arg_spec->{$1} = sub {};
-        } else {
+        }
+        else {
             ( $arg ) = split /:/, $arg;
             $arg_spec->{$arg} = sub {};
         }
+    };
+
+    my $del_type = sub {
+        my ( undef, $arg ) = @_;
+
+        delete $arg_spec->{$arg};
     };
 
     for(my $i = 0; $i < @{$sources}; $i += 2) {
@@ -335,6 +434,7 @@ sub explode_sources {
             Getopt::Long::GetOptionsFromArray(\@chunk,
                 'type-add=s' => $add_type,
                 'type-set=s' => $add_type,
+                'type-del=s' => $del_type,
             );
             Getopt::Long::GetOptionsFromArray(\@chunk, %{$arg_spec});
 
@@ -402,7 +502,7 @@ sub remove_default_options_if_needed {
 
     my $should_remove = 0;
 
-    Getopt::Long::Configure('default'); # start with default options
+    Getopt::Long::Configure('default', 'no_auto_help', 'no_auto_version'); # start with default options, minus some annoying ones
     Getopt::Long::Configure(
         'no_ignore_case',
         'no_auto_abbrev',
@@ -414,11 +514,12 @@ sub remove_default_options_if_needed {
 
         my ( $name, $args ) = @{$sources}[ $index, $index + 1 ];
 
-        if(ref($args)) {
+        if (ref($args)) {
             Getopt::Long::GetOptionsFromArray($args,
                 'ignore-ack-defaults' => \$should_remove,
             );
-        } else {
+        }
+        else {
             ( undef, $sources->[$index + 1] ) = Getopt::Long::GetOptionsFromString($args,
                 'ignore-ack-defaults' => \$should_remove,
             );
@@ -426,6 +527,7 @@ sub remove_default_options_if_needed {
     }
 
     Getopt::Long::Configure('default');
+    Getopt::Long::Configure('default', 'no_auto_help', 'no_auto_version');
 
     return $sources unless $should_remove;
 
@@ -434,10 +536,61 @@ sub remove_default_options_if_needed {
     return \@copy;
 }
 
+sub check_for_mutually_exclusive_options {
+    my ( $arg_sources ) = @_;
+
+    my %mutually_exclusive_with;
+    my @copy = @{$arg_sources};
+
+    for(my $i = 0; $i < @INVALID_COMBINATIONS; $i += 2) {
+        my ( $lhs, $rhs ) = @INVALID_COMBINATIONS[ $i, $i + 1 ];
+
+        foreach my $l_opt ( @{$lhs} ) {
+            foreach my $r_opt ( @{$rhs} ) {
+                push @{ $mutually_exclusive_with{ $l_opt } }, $r_opt;
+                push @{ $mutually_exclusive_with{ $r_opt } }, $l_opt;
+            }
+        }
+    }
+
+    while( @copy ) {
+        my %set_opts;
+
+        my ( $source_name, $args ) = splice @copy, 0, 2;
+        $args = ref($args) ? [ @{$args} ] : [ Text::ParseWords::shellwords($args) ];
+
+        foreach my $opt ( @{$args} ) {
+            next unless $opt =~ /^[-+]/;
+            last if $opt eq '--';
+
+            if( $opt =~ /^(.*)=/ ) {
+                $opt = $1;
+            }
+            elsif ( $opt =~ /^(-[^-]).+/ ) {
+                $opt = $1;
+            }
+
+            $set_opts{ $opt } = 1;
+
+            my $mutex_opts = $mutually_exclusive_with{ $opt };
+
+            next unless $mutex_opts;
+
+            foreach my $mutex_opt ( @{$mutex_opts} ) {
+                if($set_opts{ $mutex_opt }) {
+                    die "Options '$mutex_opt' and '$opt' are mutually exclusive\n";
+                }
+            }
+        }
+    }
+}
+
 sub process_args {
     my $arg_sources = \@_;
 
     my %opt;
+
+    check_for_mutually_exclusive_options($arg_sources);
 
     $arg_sources = remove_default_options_if_needed($arg_sources);
 

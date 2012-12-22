@@ -3,7 +3,7 @@
 use warnings;
 use strict;
 
-use Test::More tests => 20;
+use Test::More tests => 24;
 
 use lib 't';
 use Util;
@@ -15,7 +15,7 @@ DASH_L: {
         t/text/science-of-myth.txt
     );
 
-    my @args  = qw( religion -i -a -l );
+    my @args  = qw( religion -i -l );
     my @files = qw( t/text );
 
     ack_sets_match( [ @args, @files ], \@expected, 'Looking for religion with -l' );
@@ -42,7 +42,7 @@ DASH_CAPITAL_L: {
     # -L and -l -v are identical
     for my $switches ( @switches ) {
         my @files = qw( t/text );
-        my @args  = ( 'religion', '-a', @{$switches} );
+        my @args  = ( 'religion', @{$switches} );
 
         ack_sets_match( [ @args, @files ], \@expected, "Looking for religion with @{$switches}" );
     }
@@ -58,7 +58,7 @@ DASH_C: {
         t/text/shut-up-be-happy.txt:0
     );
 
-    my @args  = qw( boy -i -a -c );
+    my @args  = qw( boy -i -c );
     my @files = qw( t/text );
 
     ack_sets_match( [ @args, @files ], \@expected, 'Boy counts' );
@@ -69,7 +69,7 @@ DASH_LC: {
         t/text/science-of-myth.txt:2
     );
 
-    my @args  = qw( religion -i -a -l -c );
+    my @args  = qw( religion -i -l -c );
     my @files = qw( t/text );
 
     ack_sets_match( [ @args, @files ], \@expected, 'Religion counts -l -c' );
@@ -82,6 +82,22 @@ PIPE_INTO_C: {
 
     is( scalar @results, 1, 'Piping into ack --count should return one line of results' );
     is( $results[0], '2', 'Piping into ack --count should return "<count>"' );
+}
+
+DASH_HC: {
+    my @args     = qw( boy -i -c -h );
+    my @files    = qw( t/text );
+    my @expected = ( '3' );
+
+    ack_sets_match( [ @args, @files ], \@expected, 'ack -c -h should return one line of results' );
+}
+
+SINGLE_FILE_COUNT: {
+    my @args     = qw( boy -i -c -h );
+    my @files    = ( 't/text/boy-named-sue.txt' );
+    my @expected = ( '2' );
+
+    ack_sets_match( [ @args, @files ], \@expected, 'ack -c -h should return one line of results' );
 }
 
 done_testing();

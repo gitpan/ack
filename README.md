@@ -18,9 +18,9 @@ through binary files.
 
 * Removed the `--skipped` option.
 
-* Removed the `--invert-file-match` option.  `-v` now works with `-g`.
+* Removed the `--invert-file-match` option.  `-v` now works with
+`-g`.  To list files that do not match `/foo/`
 
-    # List files that do not match /foo/
     ack -g foo -v
 
 * `-g` now obeys all regex options: `-i`, `-w`, `-Q`, `-v`
@@ -29,7 +29,8 @@ through binary files.
 regexes specified on the command line.  Now you use the `-x` switch
 to pipe filenames from one `ack` invocation into another.
 
-    # Search files with filename matching "sales" for the string "foo"
+To search files with filename matching "sales" for the string "foo":
+
     ack -g sales | ack -x foo
 
 # New features in ack 2.0
@@ -49,7 +50,7 @@ ack 2.0 will:
     * global ackrc (/etc/ackrc)
         * https://github.com/petdance/ack/issues/#issue/79
     * user-specific ackrc (~/.ackrc)
-    * per-project ackrc files (~/myproject/ackrc)
+    * per-project ackrc files (~/myproject/.ackrc)
 
 * you can use --dump to figure which options are set where
 
@@ -58,3 +59,16 @@ ack 2.0 will:
       include or exclude, etc, *but* these are only included so you don't
       need to ship an ackrc file to a new machine.  You may tell ack to
       disregard these defaults if you like.
+
+* In addition to the classic `--thpppt` option to draw Bill the
+Cat, `ack --bar` will draw (of course) Admiral Ackbar.
+
+# Building
+
+    # Required
+    perl Makefile.PL
+    make
+    make test
+    sudo make install # for a system-wide installation (recommended)
+    # - or -
+    cp ack-standalone ~/bin/ack2 # for a personal installation

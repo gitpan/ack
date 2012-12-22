@@ -122,6 +122,12 @@ sub _options_block {
 # Ada http://www.adaic.org/
 --type-add=ada:ext:ada,adb,ads
 
+# ASP http://msdn.microsoft.com/en-us/library/aa286483.aspx
+--type-add=asp:ext:asp
+
+# ASP.Net http://www.asp.net/
+--type-add=aspx:ext:master,ascx,asmx,aspx,svc
+
 # Assembly
 --type-add=asm:ext:asm,s
 
@@ -166,7 +172,7 @@ sub _options_block {
 --type-add=go:ext:go
 
 # Groovy http://groovy.codehaus.org/
---type-add=groovy:ext:groovy,gtmpl,gpp,grunit
+--type-add=groovy:ext:groovy,gtmpl,gpp,grunit,gradle
 
 # Haskell http://www.haskell.org/
 --type-add=haskell:ext:hs,lhs

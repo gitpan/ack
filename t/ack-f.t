@@ -3,7 +3,7 @@
 use warnings;
 use strict;
 
-use Test::More tests => 5;
+use Test::More tests => 9;
 
 use lib 't';
 use Util;
@@ -34,9 +34,11 @@ DEFAULT_DIR_EXCLUSIONS: {
         t/swamp/javascript.js
         t/swamp/Makefile
         t/swamp/Makefile.PL
+        t/swamp/MasterPage.master
         t/swamp/notaMakefile
         t/swamp/notaRakefile
         t/swamp/notes.md
+        t/swamp/options-crlf.pl
         t/swamp/options.pl
         t/swamp/parrot.pir
         t/swamp/perl-test.t
@@ -48,7 +50,12 @@ DEFAULT_DIR_EXCLUSIONS: {
         t/swamp/perl.pod
         t/swamp/pipe-stress-freaks.F
         t/swamp/Rakefile
+        t/swamp/Sample.ascx
+        t/swamp/Sample.asmx
+        t/swamp/sample.asp
+        t/swamp/sample.aspx
         t/swamp/sample.rake
+        t/swamp/service.svc
         t/swamp/stuff.cmake
         t/swamp/CMakeLists.txt
         ),
@@ -58,6 +65,7 @@ DEFAULT_DIR_EXCLUSIONS: {
     my @args = qw( -f t/swamp );
 
     ack_sets_match( [ @args ], \@expected );
+    is( get_rc(), 0, '-f with matches exits with 0' );
 }
 
 COMBINED_FILTERS: {
@@ -65,6 +73,7 @@ COMBINED_FILTERS: {
         t/swamp/0
         t/swamp/perl.pm
         t/swamp/Rakefile
+        t/swamp/options-crlf.pl
         t/swamp/options.pl
         t/swamp/perl-without-extension
         t/swamp/perl.cgi
@@ -78,18 +87,16 @@ COMBINED_FILTERS: {
     my @args = qw( -f t/swamp --perl --rake );
 
     ack_sets_match( [ @args ], \@expected );
+    is( get_rc(), 0, '-f with matches exits with 0' );
 }
 
-subtest '-f with a regex is an error' => sub {
-    # specifying both -f and a regex should result in an error
-    my @files = qw( t/text );
-    my @args = qw( -f --match Sue );
+EXIT_CODE: {
+    my @expected;
 
-    my ($stdout, $stderr) = run_ack_with_stderr( @args, @files );
-    isnt( get_rc(), 0, 'Specifying both -f and --match must lead to an error RC' );
-    is( scalar @{$stdout}, 0, 'No normal output' );
-    is( scalar @{$stderr}, 1, 'One line of stderr output' );
-    like( $stderr->[0], qr/\Q(Sue)/, 'Error message must contain "(Sue)"' );
-};
+    my @args = qw( -f t/swamp --type-add=baz:ext:baz --baz );
+
+    ack_sets_match( \@args, \@expected );
+    is( get_rc(), 1, '-f with no matches exits with 1' );
+}
 
 done_testing();

@@ -1,3 +1,5 @@
+#!perl
+
 use strict;
 use warnings;
 use lib 't';
@@ -9,6 +11,7 @@ prep_environment();
 
 my @expected = (
     't/swamp/Makefile.PL',
+    't/swamp/options-crlf.pl',
     't/swamp/options.pl',
     't/swamp/perl.pl',
 );

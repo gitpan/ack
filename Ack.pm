@@ -5,8 +5,8 @@ use strict;
 
 use App::Ack::ConfigDefault;
 use App::Ack::ConfigFinder;
-use Getopt::Long;
-use File::Next 1.08;
+use Getopt::Long 2.36 ();
+use File::Next 1.10;
 
 =head1 NAME
 
@@ -14,15 +14,17 @@ App::Ack - A container for functions for the ack program
 
 =head1 VERSION
 
-Version 2.00a01
+Version 2.00b02
 
 =cut
 
 our $VERSION;
+our $GIT_REVISION;
 our $COPYRIGHT;
 BEGIN {
-    $VERSION = '2.00a01';
+    $VERSION = '2.00b02';
     $COPYRIGHT = 'Copyright 2005-2012 Andy Lester.';
+    $GIT_REVISION = '';
 }
 
 our $fh;
@@ -44,9 +46,8 @@ our $dir_sep_chars;
 our $is_cygwin;
 our $is_windows;
 
-use File::Spec ();
-use File::Glob ':glob';
-use Getopt::Long ();
+use File::Spec 1.00015 ();
+use File::Glob 1.00015 ':glob';
 
 BEGIN {
     # These have to be checked before any filehandle diddling.
@@ -78,16 +79,16 @@ sub retrieve_arg_sources {
     my $noenv;
     my $ackrc;
 
-    Getopt::Long::Configure('default');
+    Getopt::Long::Configure('default', 'no_auto_help', 'no_auto_version');
     Getopt::Long::Configure('pass_through');
     Getopt::Long::Configure('no_auto_abbrev');
 
-    GetOptions(
+    Getopt::Long::GetOptions(
         'noenv'   => \$noenv,
         'ackrc=s' => \$ackrc,
     );
 
-    Getopt::Long::Configure('default');
+    Getopt::Long::Configure('default', 'no_auto_help', 'no_auto_version');
 
     my @files;
 
@@ -100,7 +101,8 @@ sub retrieve_arg_sources {
         # XXX this is a potential race condition!
         if(open my $fh, '<', $ackrc) {
             close $fh;
-        } else {
+        }
+        else {
             die "Unable to load ackrc '$ackrc': $!"
         }
         push( @files, $ackrc );
@@ -164,8 +166,7 @@ sub create_ignore_rules {
 
     my @opts = @{$opts};
 
-    my %rules = {
-    };
+    my %rules;
 
     for my $opt ( @opts ) {
         if ( $opt =~ /^(is|ext|regex),(.+)$/ ) {
@@ -368,7 +369,7 @@ Dumps the help page to the user.
 sub show_help {
     my $help_arg = shift || 0;
 
-#   return show_help_types() if $help_arg =~ /^types?/;
+    return show_help_types() if $help_arg =~ /^types?/;
 
     App::Ack::print( <<"END_OF_HELP" );
 Usage: ack [OPTION]... PATTERN [FILES OR DIRECTORIES]
@@ -388,7 +389,7 @@ Example: ack -i select
 Searching:
   -i, --ignore-case     Ignore case distinctions in PATTERN
   --[no]smart-case      Ignore case distinctions in PATTERN,
-                        only if PATTERN contains no upper case
+                        only if PATTERN contains no upper case.
                         Ignored if -i is specified
   -v, --invert-match    Invert match: select non-matching lines
   -w, --word-regexp     Force PATTERN to match only whole words
@@ -425,6 +426,9 @@ Search output:
   --print0              Print null byte as separator between filenames,
                         only works with -f, -g, -l, -L or -c.
 
+  -s                    Suppress error messages about nonexistent or
+                        unreadable files.
+
 
 File presentation:
   --pager=COMMAND       Pipes all ack output through COMMAND.  For example,
@@ -449,9 +453,9 @@ File presentation:
 
 
 File finding:
-  -f                    Only print the files found, without searching.
+  -f                    Only print the files selected, without searching.
                         The PATTERN must not be specified.
-  -g                    Same as -f, but only print files matching PATTERN.
+  -g                    Same as -f, but only select files matching PATTERN.
   --sort-files          Sort the found files lexically.
   --show-types          Show which types each file has.
   --files-from=FILE     Read the list of files to search from FILE.
@@ -462,27 +466,30 @@ File inclusion/exclusion:
   -r, -R, --recurse     Recurse into subdirectories (ack's default behavior)
   -n, --no-recurse      No descending into subdirectories
   --[no]follow          Follow symlinks.  Default is off.
+  -k, --known-types     Include only files with types that ack recognizes.
 
   --type=X              Include only X files, where X is a recognized filetype.
   --type=noX            Exclude X files.
-                        See "ack --help type" for supported filetypes.
+                        See "ack --help-types" for supported filetypes.
 
 File type specification:
-  --type-set TYPE=.EXTENSION[,.EXT2[,...]]
-                        Files with the given EXTENSION(s) are recognized as
-                        being of type TYPE. This replaces an existing
-                        definition for type TYPE.
-  --type-add TYPE=.EXTENSION[,.EXT2[,...]]
-                        Files with the given EXTENSION(s) are recognized as
-                        being of (the existing) type TYPE
-
+  --type-set TYPE:FILTER:FILTERARGS
+                        Files with the given FILTERARGS applied to the given
+                        FILTER are recognized as being of type TYPE. This
+                        replaces an existing definition for type TYPE.
+  --type-add TYPE:FILTER:FILTERARGS
+                        Files with the given FILTERARGS applied to the given
+                        FILTER are recognized as being of type TYPE.
+  --type-del TYPE       Removes all filters associated with TYPE.
 
 
 Miscellaneous:
   --noenv               Ignore environment variables and global ackrc files
   --ackrc=filename      Specify an ackrc file to use
   --ignore-ack-defaults Ignore the default definitions that ack includes.
+  --create-ackrc        Outputs a default ackrc for your customization to standard output.
   --help                This help
+  --help-types          Display all known types
   --dump                Dump information on which options are loaded from which RC files
   --man                 Man page
   --version             Display version & copyright
@@ -535,18 +542,16 @@ END_OF_HELP
     return;
 }
 
-sub _listify {
-    my @whats = @_;
+sub show_man {
+    require Pod::Usage;
 
-    return '' if !@whats;
+    Pod::Usage::pod2usage({
+        -input   => $App::Ack::orig_program_name,
+        -verbose => 2,
+        -exitval => 0,
+    });
 
-    my $end = pop @whats;
-    my $str = @whats ? join( ', ', @whats ) . " and $end" : $end;
-
-    no warnings 'once';
-    require Text::Wrap;
-    $Text::Wrap::columns = 75;
-    return Text::Wrap::wrap( '', '    ', $str );
+    return;
 }
 
 =head2 get_version_statement
@@ -566,8 +571,10 @@ sub get_version_statement {
     }
     my $ver = sprintf( '%vd', $^V );
 
+    my $git_revision = $GIT_REVISION ? " (git commit $GIT_REVISION)" : '';
+
     return <<"END_OF_VERSION";
-ack $VERSION
+ack ${VERSION}${git_revision}
 Running under Perl $ver at $this_perl
 
 $copyright
@@ -606,7 +613,7 @@ Set default colors, load Term::ANSIColor
 =cut
 
 sub load_colors {
-    eval 'use Term::ANSIColor ()';
+    eval 'use Term::ANSIColor 3.01 ()';
 
     $ENV{ACK_COLOR_MATCH}    ||= 'black on_yellow';
     $ENV{ACK_COLOR_FILENAME} ||= 'bold green';
@@ -716,14 +723,14 @@ sub does_match {
 
     if ( $invert ? $line !~ /$re/ : $line =~ /$re/ ) {
         if ( not $invert ) {
-            use English '-no_match_vars';
+            # @- = @LAST_MATCH_START
+            # @+ = @LAST_MATCH_END
+            $match_column_number = $-[0] + 1;
 
-            $match_column_number = $LAST_MATCH_START[0] + 1;
-
-            if ( @LAST_MATCH_START > 1 ) {
+            if ( @- > 1 ) {
                 @capture_indices = map {
-                    [ $LAST_MATCH_START[$_], $LAST_MATCH_END[$_] ]
-                } ( 1 .. $#LAST_MATCH_START );
+                    [ $-[$_], $+[$_] ]
+                } ( 1 .. $#- );
             }
         }
         return 1;
@@ -1038,6 +1045,8 @@ sub print_line_with_context {
     }
 
     $is_first_match = 0;
+
+    return;
 }
 
 }
@@ -1062,6 +1071,33 @@ sub filetypes {
     }
 
     return sort @matches;
+}
+
+# returns a (fairly) unique identifier for a file
+# use this function to compare two files to see if they're
+# equal (ie. the same file, but with a different path/links/etc)
+sub get_file_id {
+    my ( $filename ) = @_;
+
+    if ( $is_windows ) {
+        return File::Next::reslash( $filename );
+    }
+    else {
+        # XXX is this the best method? it always hits the FS
+        if( my ( $dev, $inode ) = (stat($filename))[0, 1] ) {
+            return join(':', $dev, $inode);
+        }
+        else {
+            # XXX this could be better
+            return $filename;
+        }
+    }
+}
+
+sub create_ackrc {
+    my @lines = App::Ack::ConfigDefault::options();
+
+    print join("\n", '--ignore-ack-defaults', @lines);
 }
 
 

@@ -4,7 +4,7 @@
       "Andy Lester <andy@petdance.com>"
    ],
    "dynamic_config" : 1,
-   "generated_by" : "ExtUtils::MakeMaker version 6.62, CPAN::Meta::Converter version 2.120630",
+   "generated_by" : "ExtUtils::MakeMaker version 6.62, CPAN::Meta::Converter version 2.112621",
    "license" : [
       "artistic_2"
    ],
@@ -22,23 +22,29 @@
    "prereqs" : {
       "build" : {
          "requires" : {
-            "ExtUtils::MakeMaker" : "0"
+            "ExtUtils::MakeMaker" : 0
          }
       },
       "configure" : {
          "requires" : {
-            "ExtUtils::MakeMaker" : "0"
+            "ExtUtils::MakeMaker" : 0
          }
       },
       "runtime" : {
          "requires" : {
-            "File::Basename" : "0",
-            "File::Next" : "1.1",
+            "Carp" : "1.22",
+            "Cwd" : "3.00",
+            "File::Basename" : "1.00015",
+            "File::Glob" : "1.00015",
+            "File::Next" : "1.10",
+            "File::Spec" : "3.00",
+            "File::Temp" : "0.19",
             "Getopt::Long" : "2.36",
-            "Pod::Usage" : "0",
-            "Term::ANSIColor" : "0",
-            "Test::Harness" : "2.5",
-            "Test::More" : "0.96"
+            "Pod::Usage" : "1.26",
+            "Term::ANSIColor" : "3.01",
+            "Test::Harness" : "2.50",
+            "Test::More" : "0.98",
+            "Text::ParseWords" : "3.1"
          }
       }
    },
@@ -56,5 +62,5 @@
       },
       "x_MailingList" : "http://groups.google.com/group/ack-users"
    },
-   "version" : "2.00a01"
+   "version" : "2.00b02"
 }

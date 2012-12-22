@@ -22,12 +22,12 @@ sub is_global_file {
 
     my $wd = getcwd();
 
-    my $sep = $^O eq 'Win32' ? '\\' : '/';
+    my $sep = is_win32() ? '\\' : '/';
 
     chop $dir if $dir =~ m{$sep$};
     chop $wd  if $wd =~ m{$sep$};
 
-    return $wd !~ /^$dir/;
+    return $wd !~ /^\Q$dir\E/;
 }
 
 sub remove_defaults_and_globals {
@@ -90,8 +90,8 @@ NOENV_IN_CONFIG: {
     local $ENV{'ACK_OPTIONS'} = '--perl';
 
     my ( $stdout, $stderr ) = run_ack_with_stderr('--env', 'perl');
-    is @$stdout, 0;
-    is @$stderr, 1;
+    is @{$stdout}, 0;
+    is @{$stderr}, 1;
     like $stderr->[0], qr/--noenv found in (?:.*)[.]ackrc/ or diag(explain($stderr));
 }
 

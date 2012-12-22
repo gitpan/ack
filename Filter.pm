@@ -6,7 +6,7 @@ use overload
     '""' => 'to_string';
 
 use App::Ack::Filter::Inverse ();
-use Carp ();
+use Carp 1.22 ();
 
 my %filter_types;
 
@@ -112,7 +112,7 @@ called implicitly by stringification.
 sub to_string {
     my ( $self ) = @_;
 
-    return "(unimplemented to_string)";
+    return '(unimplemented to_string)';
 }
 
 =head2 $filter->inspect

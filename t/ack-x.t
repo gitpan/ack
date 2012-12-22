@@ -1,3 +1,5 @@
+#!perl
+
 use strict;
 use warnings;
 
@@ -20,18 +22,7 @@ sub do_parent {
         vec( $rin, fileno($stdout_read), 1 ) = 1 if $stdout_read;
         vec( $rin, fileno($stderr_read), 1 ) = 1 if $stderr_read;
 
-        my $ein = $rin;
-
-        select( $rin, undef, $ein, undef );
-
-        if ( $stdout_read && vec( $ein, fileno($stdout_read), 1 ) ) {
-            close $stdout_read;
-            undef $stdout_read;
-        }
-        if ( $stderr_read && vec( $ein, fileno($stderr_read), 1 ) ) {
-            close $stderr_read;
-            undef $stderr_read;
-        }
+        select( $rin, undef, undef, undef );
 
         if ( $stdout_read && vec( $rin, fileno($stdout_read), 1 ) ) {
             my $line = <$stdout_read>;
@@ -106,76 +97,85 @@ EOF
 my @lhs_args = ( $^X, '-Mblib', build_ack_invocation( '-g', 'of', 't/text' ) );
 my @rhs_args = ( $^X, '-Mblib', build_ack_invocation( '-x', 'the' ) ); # for now
 
-my @stdout;
-my @stderr;
-
-my ( $stdout_read, $stdout_write );
-my ( $stderr_read, $stderr_write );
-my ( $lhs_rhs_read, $lhs_rhs_write );
-
-pipe( $stdout_read, $stdout_write );
-pipe( $stderr_read, $stderr_write );
-pipe( $lhs_rhs_read, $lhs_rhs_write );
-
-my $lhs_pid;
-my $rhs_pid;
-
-$lhs_pid = fork();
-
-if ( !defined($lhs_pid) ) {
-    die "Unable to fork";
+if ( $ENV{'ACK_TEST_STANDALONE'} ) {
+    @lhs_args = grep { $_ ne '-Mblib' } @lhs_args;
+    @rhs_args = grep { $_ ne '-Mblib' } @rhs_args;
 }
 
-if ( $lhs_pid ) {
-    $rhs_pid = fork();
+my ($stdout, $stderr);
 
-    if ( !defined($rhs_pid) ) {
-        kill TERM => $lhs_pid;
+if (is_win32()) {
+    ($stdout, $stderr) = run_cmd("@lhs_args | @rhs_args");
+}
+else {
+    my ( $stdout_read, $stdout_write );
+    my ( $stderr_read, $stderr_write );
+    my ( $lhs_rhs_read, $lhs_rhs_write );
+
+    pipe( $stdout_read, $stdout_write );
+    pipe( $stderr_read, $stderr_write );
+    pipe( $lhs_rhs_read, $lhs_rhs_write );
+
+    my $lhs_pid;
+    my $rhs_pid;
+
+    $lhs_pid = fork();
+
+    if ( !defined($lhs_pid) ) {
+        die 'Unable to fork';
+    }
+
+    if ( $lhs_pid ) {
+        $rhs_pid = fork();
+
+        if ( !defined($rhs_pid) ) {
+            kill TERM => $lhs_pid;
+            waitpid $lhs_pid, 0;
+            die 'Unable to fork';
+        }
+    }
+
+    if ( $rhs_pid ) { # parent
+        close $stdout_write;
+        close $stderr_write;
+        close $lhs_rhs_write;
+        close $lhs_rhs_read;
+
+        do_parent(
+            stdout_read  => $stdout_read,
+            stderr_read  => $stderr_read,
+            stdout_lines => ($stdout = []),
+            stderr_lines => ($stderr = []),
+        );
+
         waitpid $lhs_pid, 0;
-        die "Unable to fork";
+        waitpid $rhs_pid, 0;
+    }
+    elsif ( $lhs_pid ) { # right-hand-side child
+        close $stdout_read;
+        close $stderr_read;
+        close $stderr_write;
+        close $lhs_rhs_write;
+
+        open STDIN, '<&', $lhs_rhs_read;
+        open STDOUT, '>&', $stdout_write;
+        close STDERR;
+
+        exec @rhs_args;
+    }
+    else { # left-hand side child
+        close $stdout_read;
+        close $stdout_write;
+        close $lhs_rhs_read;
+        close $stderr_read;
+
+        open STDOUT, '>&', $lhs_rhs_write;
+        open STDERR, '>&', $stderr_write;
+        close STDIN;
+
+        exec @lhs_args;
     }
 }
 
-if ( $rhs_pid ) { # parent
-    close $stdout_write;
-    close $stderr_write;
-    close $lhs_rhs_write;
-    close $lhs_rhs_read;
-
-    do_parent(
-        stdout_read  => $stdout_read,
-        stderr_read  => $stderr_read,
-        stdout_lines => \@stdout,
-        stderr_lines => \@stderr,
-    );
-
-    waitpid $lhs_pid, 0;
-    waitpid $rhs_pid, 0;
-}
-elsif ( $lhs_pid ) { # right-hand-side child
-    close $stdout_read;
-    close $stderr_read;
-    close $stderr_write;
-    close $lhs_rhs_write;
-
-    open STDIN, '<&', $lhs_rhs_read;
-    open STDOUT, '>&', $stdout_write;
-    close STDERR;
-
-    exec @rhs_args;
-}
-else { # left-hand side child
-    close $stdout_read;
-    close $stdout_write;
-    close $lhs_rhs_read;
-    close $stderr_read;
-
-    open STDOUT, '>&', $lhs_rhs_write;
-    open STDERR, '>&', $stderr_write;
-    close STDIN;
-
-    exec @lhs_args;
-}
-
-sets_match( \@stdout, \@expected );
-is_deeply \@stderr, [];
+sets_match( $stdout, \@expected );
+is_deeply $stderr, [];

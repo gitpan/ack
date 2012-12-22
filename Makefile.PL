@@ -31,17 +31,23 @@ my %parms = (
     },
     EXE_FILES           => [ 'ack' ],
     PREREQ_PM => {
-        'Test::Harness'     => 2.50, # Something reasonably newish
-        'Term::ANSIColor'   => 0,
-        'Getopt::Long'      => 2.36, # For GetOptionsFromArray()
-        'Test::More'        => 0.96, # For subtest()
-        'File::Next'        => 1.10,
-        'File::Basename'    => 0,
-        'Pod::Usage'        => 0,
+        'Carp'              => '1.22',
+        'Cwd'               => '3.00',
+        'File::Basename'    => '1.00015',
+        'File::Glob'        => '1.00015',
+        'File::Next'        => '1.10',
+        'File::Spec'        => '3.00',
+        'File::Temp'        => '0.19',
+        'Getopt::Long'      => '2.36', # For GetOptionsFromArray()
+        'Pod::Usage'        => '1.26',
+        'Term::ANSIColor'   => '3.01',
+        'Test::Harness'     => '2.50', # Something reasonably newish
+        'Test::More'        => '0.98', # For subtest()
+        'Text::ParseWords'  => '3.1',
     },
     MAN3PODS            => {}, # no need for man pages for any of the .pm files
     dist                => { COMPRESS => 'gzip -9f', SUFFIX => 'gz', },
-    clean               => { FILES => 'ack-1* nytprof*' },
+    clean               => { FILES => 'ack-1* nytprof* stderr.log stdout.log' },
 );
 
 if ( $ExtUtils::MakeMaker::VERSION =~ /^\d\.\d\d$/ and $ExtUtils::MakeMaker::VERSION > 6.30 ) {
@@ -64,8 +70,15 @@ WriteMakefile( %parms );
 
 package MY;
 
+# supress EU::MM test rule
+sub MY::test {
+    return '';
+}
+
 sub MY::postamble {
-    my $file_next_filename = qx(perldoc -l File::Next);
+    # was this next line used for something???
+    # my $file_next_filename = qx(perldoc -l File::Next);
+
     my $postamble = sprintf(<<'MAKE_FRAG', $debug_mode);
 ACK               = ack
 ACK_STANDALONE    = ack-standalone
@@ -86,6 +99,9 @@ INVERSE_FILTER_PM = Inverse.pm
 ALL_PM            = $(ACK_PM) $(RESOURCE_PM) $(RESOURCES_PM) $(BASIC_PM) $(FILTER_PM) $(EXT_FILTER_PM) $(FIRST_FILTER_PM) $(IS_FILTER_PM) $(MATCH_FILTER_PM) $(DEFAULT_FILTER_PM) $(INVERSE_FILTER_PM) $(CONFIG_FINDER_PM) $(CONFIG_LOADER_PM) $(CONFIG_DEFAULT_PM)
 PERL_T            = $(PERL) -T
 
+TEST_VERBOSE=0
+TEST_FILES=t/*.t
+
 .PHONY: tags critic
 
 tags:
@@ -101,12 +117,22 @@ critic:
 
 $(ACK_STANDALONE) : $(ACK) $(ALL_PM) squash Makefile
 	$(PERL) squash %s $(ACK) File::Next $(ALL_PM) > $(ACK_STANDALONE)
-	$(CHMOD) 0755 $(ACK_STANDALONE)
+	$(FIXIN) $(ACK_STANDALONE)
+	-$(NOECHO) $(CHMOD) $(PERM_RWX) $(ACK_STANDALONE)
+	$(PERL) -i -p -e "s/\\\$$GIT_REVISION\s*=\s*''/\\\$$GIT_REVISION = q{$$(git rev-parse --short HEAD)}/" $(ACK_STANDALONE)
 	$(PERL_T) -c $(ACK_STANDALONE)
 
 bininst : $(ACK)
 	$(CP) $(ACK) ~/bin/ack2
 	$(CP) ackrc ~/.ack2rc
+
+test: test_classic test_standalone
+
+test_classic: all
+	$(FULLPERLRUN) t/runtests.pl 0 $(TEST_VERBOSE) "$(INST_LIB)" "$(INST_ARCHLIB)" $(TEST_FILES)
+
+test_standalone: all $(ACK_STANDALONE)
+	$(FULLPERLRUN) t/runtests.pl 1 $(TEST_VERBOSE) "$(INST_LIB)" "$(INST_ARCHLIB)" $(TEST_FILES)
 
 MAKE_FRAG
 

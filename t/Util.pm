@@ -1,18 +1,19 @@
 
+use Carp ();
 use File::Next ();
 use App::Ack ();
 use Cwd ();
 use File::Spec ();
+use File::Temp ();
 
 my $orig_wd;
+my @temp_files; # we store temp files here to make sure they're properly
+                # reclaimed at interpreter shutdown
 
 sub prep_environment {
     delete @ENV{qw( ACK_OPTIONS ACKRC ACK_PAGER HOME )};
     $orig_wd = Cwd::getcwd();
 }
-
-# capture stderr output into this file
-my $catcherr_file = 'stderr.log';
 
 sub is_win32 {
     return $^O =~ /Win32/;
@@ -20,6 +21,36 @@ sub is_win32 {
 
 sub build_ack_invocation {
     my @args = @_;
+
+    my $options;
+
+    foreach my $arg ( @args ) {
+        if ( ref($arg) eq 'HASH' ) {
+            if ( $options ) {
+                Carp::croak('You may not specify more than one options hash');
+            }
+            else {
+                $options = $arg;
+            }
+        }
+    }
+
+    $options ||= {};
+
+    @args = grep { ref($_) ne 'HASH' } @args;
+
+    if ( my $ackrc = $options->{ackrc} ) {
+        if ( ref($ackrc) eq 'SCALAR' ) {
+            my $temp_ackrc = File::Temp->new;
+            push @temp_files, $temp_ackrc;
+
+            print { $temp_ackrc } $$ackrc, "\n";
+            close $temp_ackrc;
+            $ackrc = $temp_ackrc->filename;
+        }
+
+        unshift @args, '--ackrc', $ackrc;
+    }
 
     # The --noenv makes sure we don't pull in anything from the user
     #    unless explicitly specified in the test
@@ -39,7 +70,12 @@ sub build_ack_invocation {
         #@args = map { quotemeta $_ } @args;
     }
 
-    unshift( @args, File::Spec->rel2abs( 'blib/script/ack', $orig_wd ) );
+    if ( $ENV{'ACK_TEST_STANDALONE'} ) {
+        unshift( @args, File::Spec->rel2abs( 'ack-standalone', $orig_wd ) );
+    }
+    else {
+        unshift( @args, File::Spec->rel2abs( 'blib/script/ack', $orig_wd ) );
+    }
 
     return wantarray ? @args : join( ' ', @args );
 }
@@ -80,12 +116,23 @@ sub _write_file {
     return;
 }
 
+sub break_up_lines {
+    my $str = shift;
+
+    return split( /\n/, $str );
+}
+
+sub reslash_all {
+    return map { File::Next::reslash( $_ ) } @_;
+}
+
 sub run_ack {
     my @args = @_;
 
     local $Test::Builder::Level = $Test::Builder::Level + 1;
 
     my ($stdout, $stderr) = run_ack_with_stderr( @args );
+    @args = grep { ref($_) ne 'HASH' } @args;
 
     if ( $TODO ) {
         fail( q{Automatically fail stderr check for TODO tests.} );
@@ -119,80 +166,90 @@ sub run_cmd {
 
     my ( @stdout, @stderr );
 
-    my ( $stdout_read, $stdout_write );
-    my ( $stderr_read, $stderr_write );
+    if (is_win32) {
+# capture stderr & stdout output into these files (only on Win32)
+        my $catchout_file = 'stdout.log';
+        my $catcherr_file = 'stderr.log';
 
-    pipe $stdout_read, $stdout_write
-        or Carp::croak( "Unable to create pipe: $!" );
-
-    pipe $stderr_read, $stderr_write
-        or Carp::croak( "Unable to create pipe: $!" );
-
-    my $pid = fork();
-    if ( $pid == -1 ) {
-        Carp::croak( "Unable to fork: $!" );
+        open(SAVEOUT, ">&STDOUT") or die "Can't dup STDOUT: $!";
+        open(SAVEERR, ">&STDERR") or die "Can't dup STDERR: $!";
+        open(STDOUT, '>', $catchout_file) or die "Can't open $catchout_file: $!";
+        open(STDERR, '>', $catcherr_file) or die "Can't open $catcherr_file: $!";
+        system @cmd;
+        close STDOUT;
+        close STDERR;
+        open(STDOUT, ">&SAVEOUT") or die "Can't restore STDOUT: $!";
+        open(STDERR, ">&SAVEERR") or die "Can't restore STDERR: $!";
+        close SAVEOUT;
+        close SAVEERR;
+        @stdout = read_file($catchout_file);
+        @stderr = read_file($catcherr_file);
     }
+    else {
 
-    if ( $pid ) {
-        close $stdout_write;
-        close $stderr_write;
+        my ( $stdout_read, $stdout_write );
+        my ( $stderr_read, $stderr_write );
 
-        while ( $stdout_read || $stderr_read ) {
-            my $rin = '';
+        pipe $stdout_read, $stdout_write
+            or Carp::croak( "Unable to create pipe: $!" );
 
-            vec( $rin, fileno($stdout_read), 1 ) = 1 if $stdout_read;
-            vec( $rin, fileno($stderr_read), 1 ) = 1 if $stderr_read;
+        pipe $stderr_read, $stderr_write
+            or Carp::croak( "Unable to create pipe: $!" );
 
-            my $ein = $rin;
-
-            select( $rin, undef, $ein, undef );
-
-            # XXX is this the best way to handle this?
-            if ( $stdout_read && vec( $ein, fileno($stdout_read), 1 ) ) {
-                close $stdout_read;
-                undef $stdout_read;
-            }
-            if ( $stderr_read && vec( $ein, fileno($stderr_read), 1 ) ) {
-                close $stderr_read;
-                undef $stderr_read;
-            }
-
-            if ( $stdout_read && vec( $rin, fileno($stdout_read), 1 ) ) {
-                my $line = <$stdout_read>;
-
-                if ( defined( $line ) ) {
-                    push @stdout, $line;
-                }
-                else {
-                    close $stdout_read;
-                    undef $stdout_read;
-                }
-            }
-
-            if ( $stderr_read && vec( $rin, fileno($stderr_read), 1 ) ) {
-                my $line = <$stderr_read>;
-
-                if ( defined( $line ) ) {
-                    push @stderr, $line;
-                }
-                else {
-                    close $stderr_read;
-                    undef $stderr_read;
-                }
-            }
+        my $pid = fork();
+        if ( $pid == -1 ) {
+            Carp::croak( "Unable to fork: $!" );
         }
 
-        waitpid $pid, 0;
-    } 
-    else {
-        close $stdout_read;
-        close $stderr_read;
+        if ( $pid ) {
+            close $stdout_write;
+            close $stderr_write;
 
-        open STDOUT, '>&', $stdout_write;
-        open STDERR, '>&', $stderr_write;
+            while ( $stdout_read || $stderr_read ) {
+                my $rin = '';
 
-        exec @cmd;
-    }
+                vec( $rin, fileno($stdout_read), 1 ) = 1 if $stdout_read;
+                vec( $rin, fileno($stderr_read), 1 ) = 1 if $stderr_read;
+
+                select( $rin, undef, undef, undef );
+
+                if ( $stdout_read && vec( $rin, fileno($stdout_read), 1 ) ) {
+                    my $line = <$stdout_read>;
+
+                    if ( defined( $line ) ) {
+                        push @stdout, $line;
+                    }
+                    else {
+                        close $stdout_read;
+                        undef $stdout_read;
+                    }
+                }
+
+                if ( $stderr_read && vec( $rin, fileno($stderr_read), 1 ) ) {
+                    my $line = <$stderr_read>;
+
+                    if ( defined( $line ) ) {
+                        push @stderr, $line;
+                    }
+                    else {
+                        close $stderr_read;
+                        undef $stderr_read;
+                    }
+                }
+            }
+
+            waitpid $pid, 0;
+        }
+        else {
+            close $stdout_read;
+            close $stderr_read;
+
+            open STDOUT, '>&', $stdout_write;
+            open STDERR, '>&', $stderr_write;
+
+            exec @cmd;
+        }
+    } # end else not Win32
 
     my ($sig,$core,$rc) = (($? & 127),  ($? & 128) , ($? >> 8));
     $ack_return_code = $rc;
@@ -218,7 +275,12 @@ sub run_ack_with_stderr {
     my @stderr;
 
     @args = build_ack_invocation( @args );
-    unshift( @args, $^X, "-Mblib=$orig_wd" );
+    if ( $ENV{'ACK_TEST_STANDALONE'} ) {
+        unshift( @args, $^X );
+    }
+    else {
+        unshift( @args, $^X, "-Mblib=$orig_wd" );
+    }
 
     return run_cmd( @args );
 }
@@ -307,17 +369,33 @@ sub ack_sets_match {
 
 
 sub record_option_coverage {
-    my ( $command_line ) = @_;
+    my ( @command_line ) = @_;
 
     return unless $ENV{ACK_OPTION_COVERAGE};
+    return if $ENV{ACK_STANDALONE}; # we don't need to record the second time
+                                    # around
 
-    # strip the command line up until 'ack' is found
-    $command_line =~ s/^.*ack\b//;
+    my $record_options = File::Spec->catfile($orig_wd, 'record-options');
 
-    $command_line = $^X . ' ' . File::Spec->catfile($orig_wd, 'record-options')
-        . ' ' .  $command_line;
+    if ( @command_line == 1 ) {
+        my $command_line = $command_line[0];
 
-    system $command_line;
+        # strip the command line up until 'ack' is found
+        $command_line =~ s/^.*ack\b//;
+
+        $command_line = "$^X $record_options $command_line";
+
+        system $command_line;
+    }
+    else {
+        while ( @command_line && $command_line[0] !~ /ack/ ) {
+            shift @command_line;
+        }
+        shift @command_line; # get rid of 'ack' itself
+        unshift @command_line, $^X, $record_options;
+
+        system @command_line;
+    }
 
     return;
 }
@@ -328,14 +406,14 @@ BEGIN {
         1;
     };
 
-    if($ok) {
+    if ($ok) {
         no strict 'refs';
         *run_ack_interactive = sub {
             my ( @args) = @_;
 
-            my $cmd = build_ack_invocation(@args);
+            my @cmd = build_ack_invocation(@args);
 
-            record_option_coverage($cmd);
+            record_option_coverage(@cmd);
 
             my $pty = IO::Pty->new;
 
@@ -353,17 +431,21 @@ BEGIN {
                         push @lines, $_;
                     }
                     close $pty;
+                    waitpid $pid, 0;
                     return @lines;
-                } else {
+                }
+                else {
                     my $output = '';
 
                     while(<$pty>) {
                         $output .= $_;
                     }
                     close $pty;
+                    waitpid $pid, 0;
                     return $output;
                 }
-            } else {
+            }
+            else {
                 $pty->make_slave_controlling_terminal();
                 my $slave = $pty->slave();
                 $slave->clone_winsize_from(\*STDIN);
@@ -375,7 +457,7 @@ BEGIN {
 
                 close $slave;
 
-                exec $cmd;
+                exec @cmd;
             }
         };
     }

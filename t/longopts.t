@@ -46,6 +46,7 @@ my @other_long_opts = qw(
     --type
     --type-set
     --type-add
+    --type-del
     --[no]follow
     --noenv
     --ackrc
@@ -54,6 +55,7 @@ my @other_long_opts = qw(
     --bar
     --dump
     --ignore-ack-defaults
+    -s
 );
 
 # --no-recurse is inconsistent w/--nogroup

@@ -3,7 +3,7 @@
 use warnings;
 use strict;
 
-use Test::More tests => 22;
+use Test::More tests => 24;
 use File::Spec;
 
 use lib 't';
@@ -38,7 +38,7 @@ sub set_up_assertion_that_these_options_will_ignore_those_directories {
     my $filter = join( '|', @{$ignored_directories} );
     @expected = grep { ! m{/(?:$filter)/} } @files_mentioning_apples;
 
-    @results = run_ack( @{$options}, '--noenv', '-la', 'apple', 't/swamp' );
+    @results = run_ack( @{$options}, '--noenv', '-l', 'apple', 't/swamp' );
 
     # ignore everything in .svn directories
     my $svn_regex = quotemeta File::Spec->catfile( '', '.svn', '' ); # the respective filesystem equivalent of '/.svn/'
@@ -127,5 +127,16 @@ DASH_IGNORE_DIR_IGNORES_RELATIVE_PATHS: {
         [ @std_ignore, 'another_subdir',                   ],
         'ignore relative paths instead of just directory names',
     );
+    sets_match( \@results, \@expected, $test_description );
+}
+
+NOIGNORE_SUBDIR_WINS: {
+    local $TODO = 'Skipping failing test until we implement it';
+
+    set_up_assertion_that_these_options_will_ignore_those_directories(
+        [ '--ignore-dir=another_subdir', '--noignore-dir=CVS' ],
+        [ 'RCS', 'another_subdir(?!/CVS)' ],
+    );
+
     sets_match( \@results, \@expected, $test_description );
 }

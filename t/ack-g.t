@@ -3,7 +3,7 @@
 use warnings;
 use strict;
 
-use Test::More tests => 13;
+use Test::More tests => 14;
 
 use lib 't';
 use Util;
@@ -80,6 +80,8 @@ subtest 'Front anchor' => sub {
 
 subtest 'Back anchor' => sub {
     my @expected = qw(
+        t/runtests.pl
+        t/swamp/options-crlf.pl
         t/swamp/options.pl
         t/swamp/perl.pl
     );
@@ -146,6 +148,18 @@ subtest '-Q works on -g' => sub {
     my @args  = ( '-Q', '-g', $regex );
 
     ack_sets_match( [ @args, @files ], \@expected, "Looking for $regex with quotemeta." );
+
+    @expected = (
+        't/text/4th-of-july.txt',
+        't/text/freedom-of-choice.txt',
+        't/text/science-of-myth.txt',
+    );
+    $regex = 'of';
+
+    @files = qw( t/text );
+    @args  = ( '-Q', '-g', $regex );
+
+    ack_sets_match( [ @args, @files ], \@expected, "Looking for $regex with quotemeta." );
 };
 
 subtest '-w works on -g' => sub {
@@ -154,6 +168,18 @@ subtest '-w works on -g' => sub {
 
     my @args  = ( '-w', '-g', $regex ); # The -w means "free" won't match "freedom"
     my @files = qw( t/text/ );
+
+    ack_sets_match( [ @args, @files ], \@expected, "Looking for $regex with '-w'." );
+
+    @expected = (
+        't/text/4th-of-july.txt',
+        't/text/freedom-of-choice.txt',
+        't/text/science-of-myth.txt',
+    );
+    $regex = 'of';
+
+    @files = qw( t/text );
+    @args  = ( '-w', '-g', $regex );
 
     ack_sets_match( [ @args, @files ], \@expected, "Looking for $regex with '-w'." );
 };
@@ -170,6 +196,19 @@ subtest '-v works on -g' => sub {
     my @files = qw( t/text/ );
 
     ack_sets_match( [ @args, @files ], \@expected, "Looking for file names that do not match $file_regex" );
+};
+
+subtest 'test exit codes' => sub {
+    my $file_regex = 'foo';
+    my @files      = ( 't/text/' );
+
+    run_ack( $file_regex, @files );
+    is( get_rc(), 1, '-g with no matches must exit with 1' );
+
+    $file_regex = 'boy';
+
+    run_ack( $file_regex, @files );
+    is( get_rc(), 0, '-g with matches must exit with 0' );
 };
 
 done_testing();
