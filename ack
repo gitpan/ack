@@ -3,7 +3,7 @@
 use strict;
 use warnings;
 
-use 5.8.0;
+use 5.008;
 
 use App::Ack ();
 use App::Ack::ConfigLoader ();
@@ -11,6 +11,7 @@ use App::Ack::Resources;
 use App::Ack::Resource::Basic ();
 
 # XXX Don't make this so brute force
+# See also: https://github.com/petdance/ack2/issues/89
 use App::Ack::Filter ();
 use App::Ack::Filter::Default;
 use App::Ack::Filter::Extension;
@@ -23,7 +24,7 @@ use Getopt::Long 2.36 ();
 
 use Carp 1.22 ();
 
-our $VERSION = '2.00b02';
+our $VERSION = '2.00b03';
 # Check http://betterthangrep.com/ for updates
 
 # These are all our globals.
@@ -1479,5 +1480,8 @@ Copyright 2005-2012 Andy Lester.
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the Artistic License v2.0.
+
+See http://www.perlfoundation.org/artistic_license_2_0 or the LICENSE.md
+file that comes with the ack distribution.
 
 =cut

@@ -34,7 +34,7 @@ requires:
 resources:
   bugtracker: http://github.com/petdance/ack2
   homepage: http://betterthangrep.com/
-  license: http://www.opensource.org/licenses/artistic-license-2.0.php
+  license: http://www.perlfoundation.org/artistic_license_2_0
   repository: git://github.com/petdance/ack2.git
   x_MailingList: http://groups.google.com/group/ack-users
-version: 2.00b02
+version: 2.00b03
