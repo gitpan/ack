@@ -401,12 +401,16 @@ sub record_option_coverage {
 }
 
 BEGIN {
-    my $ok = eval {
+    my $has_io_pty = eval {
         require IO::Pty;
         1;
     };
 
-    if ($ok) {
+    sub has_io_pty {
+        return $has_io_pty;
+    }
+
+    if ($has_io_pty) {
         no strict 'refs';
         *run_ack_interactive = sub {
             my ( @args) = @_;
@@ -459,6 +463,20 @@ BEGIN {
 
                 exec @cmd;
             }
+        };
+    }
+    else {
+        no strict 'refs';
+        require Test::More;
+
+        *run_ack_interactive = sub {
+            local $Test::Builder::Level = $Test::Builder::Level + 1;
+            Test::More::fail(<<'END_FAIL');
+Your system doesn't seem to have IO::Pty, and the developers
+forgot to check in this test file.  Please file a bug report
+at https://github.com/petdance/ack2/issues with the name of
+the file that generated this failure.
+END_FAIL
         };
     }
 }
