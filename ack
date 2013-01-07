@@ -22,9 +22,9 @@ use App::Ack::Filter::Match;
 
 use Getopt::Long 2.36 ();
 
-use Carp 1.22 ();
+use Carp 1.20 ();
 
-our $VERSION = '2.00b05';
+our $VERSION = '2.00b06';
 # Check http://betterthangrep.com/ for updates
 
 # These are all our globals.
@@ -475,7 +475,7 @@ B<-l>, some line counts may be zeroes.
 If combined with B<-h> (B<--no-filename>) ack outputs only one total
 count.
 
-=item B<--color>, B<--nocolor>
+=item B<--color>, B<--nocolor>, B<--colour>, B<--nocolour>
 
 B<--color> highlights the matching text.  B<--nocolor> supresses
 the color.  This is on by default unless the output is redirected.
@@ -496,7 +496,7 @@ Sets the color to be used for matches.
 
 Sets the color to be used for line numbers.
 
-=item B<--column>
+=item B<--[no]column>
 
 Show the column number of the first match.  This is helpful for
 editors that can place your cursor at a given position.
@@ -505,6 +505,11 @@ editors that can place your cursor at a given position.
 
 Dumps the default ack options to standard output.  This is useful for
 when you want to customize the defaults.
+
+=item B<--dump>
+
+Writes the list of options loaded and where they came from to standard
+output.  Handy for debugging.
 
 =item B<--env>, B<--noenv>
 
@@ -523,6 +528,16 @@ file).
 Only print the files that would be searched, without actually doing
 any searching.  PATTERN must not be specified, or it will be taken
 as a path to search.
+
+=item B<--files-from=I<FILE>>
+
+The list of files to be searched is specified in I<FILE>.  The list of
+files are seperated by newlines.  If I<FILE> is C<->, the list is loaded
+from standard input.
+
+=item B<--[no]filter>
+
+Forces ack to act as if it were recieving input via a pipe.
 
 =item B<--follow>, B<--nofollow>
 
@@ -557,7 +572,7 @@ searched.
 Print a filename heading above each file's results.  This is the default
 when used interactively.
 
-=item B<--help>
+=item B<--help>, B<-?>
 
 Print a short help statement.
 
@@ -569,7 +584,13 @@ Print all known types.
 
 Ignore case in the search strings.
 
-=item B<--[no]ignore-dir=I<DIRNAME>>
+=item B<--ignore-ack-defaults>
+
+Tells ack to completely ignore the default definitions provided with ack.
+This is useful in combination with B<--create-ackrc> if you I<really> want
+to customize ack.
+
+=item B<--[no]ignore-dir=I<DIRNAME>>, B<--[no]ignore-directory=I<DIRNAME>>
 
 Ignore directory (as CVS, .svn, etc are ignored). May be used
 multiple times to ignore multiple directories. For example, mason
@@ -583,15 +604,20 @@ specify B<--ignore-dir=foo> and then no files from any foo directory
 are taken into account by ack unless given explicitly on the command
 line.
 
+=item B<--ignore-file=I<FILTERTYPE:FILTERARGS>>
+
+Ignore files matching I<FILTERTYPE:FILTERARGS>.  The filters are specified
+identically to file type filters as seen in L</"Defining your own types">.
+
 =item B<-k>, B<--known-types>
 
 Limit selected files to those with types that ack knows about.  This is
 equivalent to the default behavior found in ack 1.
 
-=item B<--line=I<NUM>>
+=item B<--lines=I<NUM>>
 
 Only print line I<NUM> of each file. Multiple lines can be given with multiple
-B<--line> options or as a comma separated list (B<--line=3,5,7>). B<--line=4-7>
+B<--lines> options or as a comma separated list (B<--lines=3,5,7>). B<--lines=4-7>
 also works. The lines are always output in ascending order, no matter the
 order given on the command line.
 
@@ -679,7 +705,7 @@ compatibility with grep. You can also use it for turning B<--no-recurse> off.
 Suppress error messages about nonexistent or unreadable files.  This is taken
 from fgrep.
 
-=item B<--smart-case>, B<--no-smart-case>
+=item B<--[no]smart-case>, B<--no-smart-case>
 
 Ignore case in the search strings if PATTERN contains no uppercase
 characters. This is similar to C<smartcase> in vim. This option is
@@ -743,6 +769,11 @@ Display version and copyright information.
 
 Force PATTERN to match only whole words.  The PATTERN is wrapped with
 C<\b> metacharacters.
+
+=item B<-x>
+
+An abbreviation for B<--files-from=->; the list of files to search are read
+from standard input, with one line per file.
 
 =item B<-1>
 
