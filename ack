@@ -22,9 +22,9 @@ use App::Ack::Filter::Match;
 
 use Getopt::Long 2.36 ();
 
-use Carp 1.20 ();
+use Carp 1.04 ();
 
-our $VERSION = '2.00b06';
+our $VERSION = '2.00b07';
 # Check http://betterthangrep.com/ for updates
 
 # These are all our globals.
@@ -76,7 +76,13 @@ MAIN: {
 sub _compile_descend_filter {
     my ( $opt ) = @_;
 
-    my $idirs = $opt->{idirs};
+    my $idirs            = $opt->{idirs};
+    my $dont_ignore_dirs = $opt->{no_ignore_dirs};
+
+    # if we have one or more --noignore-dir directives, we can't ignore
+    # entire subdirectory hierarchies, so we return an "accept all"
+    # filter and scrutinize the files more in _compile_file_filter
+    return if $dont_ignore_dirs;
     return unless $idirs && @{$idirs};
 
     my %ignore_dirs;
@@ -91,7 +97,7 @@ sub _compile_descend_filter {
             }
         }
         else {
-            Carp::croak( qq{Invalid filter specification "$_"} );
+            Carp::croak( qq{Invalid filter specification "$idir"} );
         }
     }
 
@@ -125,8 +131,65 @@ sub _compile_file_filter {
 
     my %is_member_of_starting_set = map { (App::Ack::get_file_id($_) => 1) } @{$start};
 
+    my $ignore_dir_list      = $opt->{idirs};
+    my $dont_ignore_dir_list = $opt->{no_ignore_dirs};
+
+    my %ignore_dir_set;
+    my %dont_ignore_dir_set;
+
+    foreach my $filter (@{ $ignore_dir_list }) {
+        if ( $filter =~ /^(\w+):(.*)/ ) {
+            if ( $1 eq 'is' ) {
+                $ignore_dir_set{ $2 } = 1;
+            } else {
+                Carp::croak( 'Non-is filters are not yet supported for --ignore-dir' );
+            }
+        } else {
+            Carp::croak( qq{Invalid filter specification "$filter"} );
+        }
+    }
+    foreach my $filter (@{ $dont_ignore_dir_list }) {
+        if ( $filter =~ /^(\w+):(.*)/ ) {
+            if ( $1 eq 'is' ) {
+                $dont_ignore_dir_set{ $2 } = 1;
+            } else {
+                Carp::croak( 'Non-is filters are not yet supported for --ignore-dir' );
+            }
+        } else {
+            Carp::croak( qq{Invalid filter specification "$filter"} );
+        }
+    }
+
     return sub {
+        # ack always selects files that are specified on the command
+        # line, regardless of filetype.  If you want to ack a JPEG,
+        # and say "ack foo whatever.jpg" it will do it for you.
         return 1 if $is_member_of_starting_set{ App::Ack::get_file_id($File::Next::name) };
+
+        if ( $dont_ignore_dir_list ) {
+            my ( undef, $dirname ) = File::Spec->splitpath($File::Next::name);
+            my @dirs               = File::Spec->splitdir($dirname);
+
+            my $is_ignoring = 0;
+
+            foreach my $dir ( @dirs ) {
+                if ( $ignore_dir_set{ $dir } ) {
+                    $is_ignoring = 1;
+                }
+                elsif ( $dont_ignore_dir_set{ $dir } ) {
+                    $is_ignoring = 0;
+                }
+            }
+            if ( $is_ignoring ) {
+                return 0;
+            }
+        }
+
+        # Ignore named pipes found in directory searching.  Named
+        # pipes created by subprocesses get specified on the command
+        # line, so the rule of "always select whatever is on the
+        # command line" wins.
+        return 0 if -p $File::Next::name;
 
         foreach my $filter (@ifiles_filters) {
             my $resource = App::Ack::Resource::Basic->new($File::Next::name);
@@ -192,6 +255,12 @@ sub main {
 
     if ( defined($opt->{H}) || defined($opt->{h}) ) {
         $opt->{show_filename}= $opt->{H} && !$opt->{h};
+    }
+
+    if ( my $output = $opt->{output} ) {
+        $output        =~ s{\\}{\\\\}g;
+        $output        =~ s{"}{\\"}g;
+        $opt->{output} = qq{"$output"};
     }
 
     my $resources;
@@ -328,10 +397,10 @@ RESOURCES:
                 }
             }
         }
-        elsif ( $opt->{l} ) {
+        elsif ( $opt->{l} || $opt->{L} ) {
             my $is_match = App::Ack::resource_has_match( $resource, $opt );
 
-            if ( $opt->{v} ? !$is_match : $is_match ) {
+            if ( $opt->{L} ? !$is_match : $is_match ) {
                 App::Ack::print( $resource->name, $ors );
                 ++$nmatches;
 
@@ -627,8 +696,7 @@ Only print the filenames of matching files, instead of the matching text.
 
 =item B<-L>, B<--files-without-matches>
 
-Only print the filenames of files that do I<NOT> match. This is equivalent
-to specifying B<-l> and B<-v>.
+Only print the filenames of files that do I<NOT> match.
 
 =item B<--match I<REGEX>>
 
@@ -661,6 +729,8 @@ highlighting)
 
 Output the evaluation of I<expr> for each line (turns off text
 highlighting)
+If PATTERN matches more than once then a line is output for each non-overlapping match.
+For more information please see the section L</"Examples of F<--output>">.
 
 =item B<--pager=I<program>>, B<--nopager>
 
@@ -919,7 +989,7 @@ on the command line.
 
 =item ACKRC
 
-Specifies the location of the F<.ackrc> file.  If this file doesn't
+Specifies the location of the user's F<.ackrc> file.  If this file doesn't
 exist, F<ack> looks in the default location.
 
 =item ACK_OPTIONS
@@ -1045,6 +1115,12 @@ not finding matches you think it should find, run F<ack -f> to see
 what files have been selected.  You can also add the C<--show-types>
 options to show the type of each file selected.
 
+=head2 Use B<--dump>
+
+This lists the ackrc files that are loaded and the options loaded
+from them.
+So for example you can find a list of directories that do not get searched or where filetypes are defined.
+
 =head1 TIPS
 
 =head2 Use the F<.ackrc> file.
@@ -1085,6 +1161,47 @@ took the access log and scanned it with ack twice.
 The first ack finds only the lines in the Apache log for the given
 IP.  The second finds the match on my troublesome GIF, and shows
 the previous five lines from the log in each case.
+
+=head2 Examples of F<--output>
+
+Following variables are useful in the expansion string:
+
+=over 4
+
+=item C<$&>
+
+The whole string matched by PATTERN.
+
+=item C<$1>, C<$2>, ...
+
+The contents of the 1st, 2nd ... bracketed group in PATTERN.
+
+=item C<$`>
+
+The string before the match.
+
+=item C<$'>
+
+The string after the match.
+
+=back
+
+For more details and other variables see
+L<http://perldoc.perl.org/perlvar.html#Variables-related-to-regular-expressions|perlvar>.
+
+This example shows how to add text around a particular pattern
+(in this case adding _ around word with "e")
+
+    ack2.pl "\w*e\w*" quick.txt --output="$`_$&_$'"
+    _The_ quick brown fox jumps over the lazy dog
+    The quick brown fox jumps _over_ the lazy dog
+    The quick brown fox jumps over _the_ lazy dog
+
+This shows how to pick out particular parts of a match using ( ) within regular expression.
+
+  ack '=head(\d+)\s+(.*)' --output=' $1 : $2'
+  input file contains "=head1 NAME"
+  output  "1 : NAME"
 
 =head2 Share your knowledge
 
@@ -1212,7 +1329,9 @@ This can be omitted using C<--noenv>.
 
 Options are then loaded from the user's ackrc.  This is located at
 C<$HOME/.ackrc> on Unix-like systems, and
-C<C:\Documents and Settings\$USER\Application Data>.
+C<C:\Documents and Settings\$USER\Application Data>.  If a different
+ackrc is desired, it may be overriden with the C<$ACKRC> environment
+variable.
 This can be omitted using C<--noenv>.
 
 =item * Project ackrc
@@ -1433,6 +1552,7 @@ L<https://github.com/petdance/ack2>
 How appropriate to have I<ack>nowledgements!
 
 Thanks to everyone who has contributed to ack in any way, including
+Andrew Black,
 Ralph Bodenner,
 Shaun Patterson,
 Ryan Olson,

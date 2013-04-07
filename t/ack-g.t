@@ -3,7 +3,7 @@
 use warnings;
 use strict;
 
-use Test::More tests => 15;
+use Test::More tests => 16;
 
 use lib 't';
 use Util;
@@ -100,7 +100,7 @@ subtest 'Case-insensitive via -i' => sub {
     my $regex = 'PIPE';
 
     my @args  = ( '-i', '-g', $regex );
-    my @files = qw( . );
+    my @files = qw( t/swamp );
 
     ack_sets_match( [ @args, @files ], \@expected, "Looking for -i -g $regex " );
 };
@@ -111,7 +111,7 @@ subtest 'Case-insensitive via (?i:)' => sub {
     );
     my $regex = '(?i:PIPE)';
 
-    my @files = qw( . );
+    my @files = qw( t/swamp );
     my @args  = ( '-g', $regex );
 
     ack_sets_match( [ @args, @files ], \@expected, "Looking for $regex" );
@@ -188,6 +188,7 @@ subtest '-v works on -g' => sub {
     my @expected = qw(
         t/text/boy-named-sue.txt
         t/text/me-and-bobbie-mcgee.txt
+        t/text/numbered-text.txt
         t/text/shut-up-be-happy.txt
     );
     my $file_regex = 'of';
@@ -221,13 +222,30 @@ subtest 'test exit codes' => sub {
     my $file_regex = 'foo';
     my @files      = ( 't/text/' );
 
-    run_ack( $file_regex, @files );
+    run_ack( '-g', $file_regex, @files );
     is( get_rc(), 1, '-g with no matches must exit with 1' );
 
     $file_regex = 'boy';
 
-    run_ack( $file_regex, @files );
+    run_ack( '-g', $file_regex, @files );
     is( get_rc(), 0, '-g with matches must exit with 0' );
+};
+
+subtest 'test -g on a path' => sub {
+    my $file_regex = 'text';
+    my @expected   = (
+        't/context.t',
+        't/text/4th-of-july.txt',
+        't/text/boy-named-sue.txt',
+        't/text/freedom-of-choice.txt',
+        't/text/me-and-bobbie-mcgee.txt',
+        't/text/numbered-text.txt',
+        't/text/science-of-myth.txt',
+        't/text/shut-up-be-happy.txt',
+    );
+    my @args = ( '--sort-files', '-g', $file_regex );
+
+    ack_sets_match( [ @args ], \@expected, 'Make sure -g matches the whole path' );
 };
 
 done_testing();

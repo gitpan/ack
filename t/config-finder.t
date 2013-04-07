@@ -10,9 +10,24 @@ use Cwd qw(getcwd realpath);
 use File::Spec;
 use File::Temp;
 use Test::Builder;
-use Test::More tests => 23;
+use Test::More;
 
 use App::Ack::ConfigFinder;
+
+my $tmpdir = $ENV{'TMPDIR'};
+my $home   = $ENV{'HOME'};
+
+chop $tmpdir if $tmpdir && $tmpdir =~ m{/$};
+chop $home   if $home   =~ m{/$};
+
+if ( $tmpdir && $tmpdir =~ /^$home/ ) {
+    plan tests => 1;
+
+    fail "Your \$TMPDIR ($tmpdir) is set to a descendant directory of ~; this test is known to fail with such a setting. Please set your TMPDIR to something else to get this test to pass.";
+    exit;
+}
+
+plan tests => 26;
 
 # Set HOME to a known value, so we get predictable results:
 $ENV{'HOME'} = realpath('t/home');
@@ -30,7 +45,7 @@ sub no_home (&) { ## no critic (ProhibitSubroutinePrototypes)
     my $home = delete $ENV{'HOME'}; # localized delete isn't supported in
                                     # earlier perls
     $fn->();
-    $ENV{'HOME'} = $home;
+    $ENV{'HOME'} = $home; # XXX this won't work on exceptions...
 
     return;
 }
@@ -44,8 +59,8 @@ sub expect_ackrcs {
     my $name     = shift;
 
     my @got      = map { realpath($_) } $finder->find_config_files;
-    @{$expected} = map { realpath($_) } @{$expected};
-    is_deeply( \@got, $expected, $name ) or diag(explain(\@got));
+    my @expected = map { realpath($_) } @{$expected};
+    is_deeply( \@got, \@expected, $name ) or diag(explain(\@got));
 
     return;
 }
@@ -170,6 +185,29 @@ do {
     touch_ackrc $user_file;
 
     expect_ackrcs [ @global_files, $user_file ], q{don't load the same ackrc file twice};
+    unlink($user_file);
+};
+
+do {
+    chdir $tempdir->dirname;
+    local $ENV{'HOME'} = File::Spec->catfile($tempdir->dirname, 'foo');
+
+    my $user_file = File::Spec->catfile($ENV{'HOME'}, '.ackrc');
+    touch_ackrc $user_file;
+
+    my $ackrc = File::Temp->new;
+    close $ackrc;
+    local $ENV{'ACKRC'} = $ackrc->filename;
+
+    expect_ackrcs [ @global_files, $ackrc->filename ], q{ACKRC overrides user's HOME ackrc};
+    unlink $ackrc->filename;
+
+    expect_ackrcs [ @global_files, $user_file ], q{ACKRC doesn't override if it doesn't exist};
+
+    touch_ackrc $ackrc->filename;
+    chdir 'foo';
+    expect_ackrcs [ @global_files, $ackrc->filename, $user_file ], q{~/.ackrc should still be found as a project ackrc};
+    unlink $ackrc->filename;
 };
 
 chdir $wd;

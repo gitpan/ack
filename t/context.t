@@ -3,7 +3,7 @@
 use warnings;
 use strict;
 
-use Test::More tests => 18;
+use Test::More tests => 30;
 use File::Next (); # for reslash function
 
 use lib 't';
@@ -98,6 +98,128 @@ EOF
     my @args = ( '-1', '-C', $regex );
 
     ack_lists_match( [ @args, @files ], \@expected, "Looking for $regex with -1" );
+}
+
+# -C with overlapping contexts (adjacent lines)
+CONTEXT_OVERLAPPING: {
+    my @expected = split( /\n/, <<"EOF" );
+This is line 03
+This is line 04
+This is line 05
+This is line 06
+This is line 07
+This is line 08
+EOF
+
+    my $regex = '05|06';
+    my @files = qw( t/text/numbered-text.txt );
+    my @args = ( '-C', $regex );
+
+    ack_lists_match( [ @args, @files ], \@expected, "Looking for $regex with overlapping contexts" );
+}
+
+# -C with contexts that touch
+CONTEXT_ADJACENT: {
+    my @expected = split( /\n/, <<"EOF" );
+This is line 01
+This is line 02
+This is line 03
+This is line 04
+This is line 05
+This is line 06
+This is line 07
+This is line 08
+This is line 09
+This is line 10
+EOF
+
+    my $regex = "03|08";
+    my @files = qw( t/text/numbered-text.txt );
+    my @args = ( '-C', $regex );
+
+    ack_lists_match( [ @args, @files ], \@expected, "Looking for $regex with contexts that touch" );
+}
+
+# -C with contexts that just don't touch
+CONTEXT_NONADJACENT: {
+    my @expected = split( /\n/, <<"EOF" );
+This is line 01
+This is line 02
+This is line 03
+This is line 04
+This is line 05
+--
+This is line 07
+This is line 08
+This is line 09
+This is line 10
+This is line 11
+EOF
+
+    my $regex = "03|09";
+    my @files = qw( t/text/numbered-text.txt );
+    my @args = ( '-C', $regex );
+
+    ack_lists_match( [ @args, @files ], \@expected, "Looking for $regex with contexts that just don't touch" );
+}
+
+CONTEXT_OVERLAPPING_COLOR: {
+    my $match_start = "\e[30;43m";
+    my $match_end   = "\e[0m";
+    my $line_end    = "\e[0m\e[K";
+
+    my @expected = split( /\n/, <<"EOF" );
+This is line 03
+This is line 04
+This is line ${match_start}05${match_end}${line_end}
+This is line ${match_start}06${match_end}${line_end}
+This is line 07
+This is line 08
+EOF
+
+    my $regex = '05|06';
+    my @files = qw( t/text/numbered-text.txt );
+    my @args = ( '--color', '-C', $regex );
+
+    ack_lists_match( [ @args, @files ], \@expected, "Looking for $regex with overlapping contexts" );
+}
+
+CONTEXT_OVERLAPPING_COLOR_BEFORE: {
+    my $match_start = "\e[30;43m";
+    my $match_end   = "\e[0m";
+    my $line_end    = "\e[0m\e[K";
+
+    my @expected = split( /\n/, <<"EOF" );
+This is line 03
+This is line 04
+This is line ${match_start}05${match_end}${line_end}
+This is line ${match_start}06${match_end}${line_end}
+EOF
+
+    my $regex = '05|06';
+    my @files = qw( t/text/numbered-text.txt );
+    my @args = ( '--color', '-B2', $regex );
+
+    ack_lists_match( [ @args, @files ], \@expected, "Looking for $regex with overlapping contexts" );
+}
+
+CONTEXT_OVERLAPPING_COLOR_AFTER: {
+    my $match_start = "\e[30;43m";
+    my $match_end   = "\e[0m";
+    my $line_end    = "\e[0m\e[K";
+
+    my @expected = split( /\n/, <<"EOF" );
+This is line ${match_start}05${match_end}${line_end}
+This is line ${match_start}06${match_end}${line_end}
+This is line 07
+This is line 08
+EOF
+
+    my $regex = '05|06';
+    my @files = qw( t/text/numbered-text.txt );
+    my @args = ( '--color', '-A2', $regex );
+
+    ack_lists_match( [ @args, @files ], \@expected, "Looking for $regex with overlapping contexts" );
 }
 
 # -m3 should work properly and show only 3 matches with correct context

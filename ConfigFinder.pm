@@ -114,7 +114,12 @@ sub find_config_files {
         push @config_files, '/etc/ackrc';
     }
 
-    push @config_files, _check_for_ackrc($ENV{'HOME'});
+    if ( $ENV{'ACKRC'} && -f $ENV{'ACKRC'} ) {
+        push @config_files, $ENV{'ACKRC'};
+    }
+    else {
+        push @config_files, _check_for_ackrc($ENV{'HOME'});
+    }
 
     my @dirs = File::Spec->splitdir(Cwd::getcwd());
     while(@dirs) {
@@ -126,6 +131,8 @@ sub find_config_files {
         pop @dirs;
     }
 
+    # XXX we only test for existence here, so if the file is
+    #     deleted out from under us, this will fail later. =(
     return _remove_redundancies( @config_files );
 }
 

@@ -18,7 +18,7 @@ no_index:
     - t
     - inc
 requires:
-  Carp: 1.20
+  Carp: 1.04
   Cwd: 3.00
   File::Basename: 1.00015
   File::Glob: 1.00015
@@ -27,7 +27,7 @@ requires:
   File::Temp: 0.19
   Getopt::Long: 2.36
   Pod::Usage: 1.26
-  Term::ANSIColor: 3.01
+  Term::ANSIColor: 1.10
   Test::Harness: 2.50
   Test::More: 0.98
   Text::ParseWords: 3.1
@@ -37,4 +37,4 @@ resources:
   license: http://www.perlfoundation.org/artistic_license_2_0
   repository: git://github.com/petdance/ack2.git
   x_MailingList: http://groups.google.com/group/ack-users
-version: 2.00b06
+version: 2.00b07

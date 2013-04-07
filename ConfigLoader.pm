@@ -6,7 +6,7 @@ use warnings;
 use App::Ack ();
 use App::Ack::Filter;
 use App::Ack::Filter::Default;
-use Carp 1.20 ();
+use Carp 1.04 ();
 use Getopt::Long 2.36 ();
 use Text::ParseWords 3.1 ();
 
@@ -34,7 +34,7 @@ BEGIN {
         [qw(--line)]             => [@context, @pretty, @filename, qw(-l --files-with-matches --files-without-matches -L -o --passthru --match -m --max-count -1 -c --count --column --print0 -f -g --show-types)],
         [qw(-o)]                 => [@context, qw(--output -c --count --column --column -f --show-types)],
         [qw(--passthru)]         => [@context, qw(--output --column -m --max-count -1 -c --count -f -g)],
-        [qw(--output)]           => [qw(-c --count -f -g)],
+        [qw(--output)]           => [@context, qw(-c --count -f -g)],
         [qw(--match)]            => [qw(-f -g)],
         [qw(-m --max-count)]     => [qw(-1 -f -g -c --count)],
         [qw(-h --no-filename)]   => [qw(-H --with-filename -f -g --group --heading)],
@@ -246,7 +246,7 @@ EOT
         'l|files-with-matches'
                             => \$opt->{l},
         'L|files-without-matches'
-                            => sub { $opt->{l} = $opt->{v} = 1 },
+                            => \$opt->{L},
         'm|max-count=i'     => \$opt->{m},
         'match=s'           => \$opt->{regex},
         'n|no-recurse'      => \$opt->{n},
@@ -269,6 +269,8 @@ EOT
                                 @{ $opt->{idirs} } = grep {
                                     $_ ne $dir
                                 } @{ $opt->{idirs} };
+
+                                push @{ $opt->{no_ignore_dirs} }, $dir;
                                },
         'nopager'           => sub { $opt->{pager} = undef },
         'passthru'          => \$opt->{passthru},
