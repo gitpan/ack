@@ -14,7 +14,7 @@ App::Ack - A container for functions for the ack program
 
 =head1 VERSION
 
-Version 2.00b07
+Version 2.00
 
 =cut
 
@@ -22,7 +22,7 @@ our $VERSION;
 our $GIT_REVISION;
 our $COPYRIGHT;
 BEGIN {
-    $VERSION = '2.00b07';
+    $VERSION = '2.00';
     $COPYRIGHT = 'Copyright 2005-2013 Andy Lester.';
     $GIT_REVISION = '';
 }
@@ -532,7 +532,7 @@ END_OF_HELP
         my $ext_list = $mappings{$type};
 
         if ( ref $ext_list ) {
-            $ext_list = join( ' ', map { $_->to_string } @{$ext_list} );
+            $ext_list = join( '; ', map { $_->to_string } @{$ext_list} );
         }
         App::Ack::print( sprintf( "    --[no]%-*.*s %s\n", $maxlen, $maxlen, $type, $ext_list ) );
     }
