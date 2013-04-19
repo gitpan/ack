@@ -14,7 +14,7 @@ App::Ack - A container for functions for the ack program
 
 =head1 VERSION
 
-Version 2.00
+Version 2.02
 
 =cut
 
@@ -22,7 +22,7 @@ our $VERSION;
 our $GIT_REVISION;
 our $COPYRIGHT;
 BEGIN {
-    $VERSION = '2.00';
+    $VERSION = '2.02';
     $COPYRIGHT = 'Copyright 2005-2013 Andy Lester.';
     $GIT_REVISION = '';
 }
@@ -407,7 +407,8 @@ Search output:
   --match PATTERN               Specify PATTERN explicitly.
   -m, --max-count=NUM           Stop searching in each file after NUM matches
   -1                            Stop searching after one match of any kind
-  -H, --with-filename           Print the filename for each match
+  -H, --with-filename           Print the filename for each match (default:
+                                on unless explicitly searching a single file)
   -h, --no-filename             Suppress the prefixing filename on output
   -c, --count                   Show number of lines matching per file
   --[no]column                  Show the column number of the first match
@@ -1118,9 +1119,7 @@ sub get_file_id {
 }
 
 sub create_ackrc {
-    my @lines = App::Ack::ConfigDefault::options();
-
-    print join("\n", '--ignore-ack-defaults', @lines);
+    print "$_\n" for ( '--ignore-ack-defaults', App::Ack::ConfigDefault::options() );
 }
 
 
