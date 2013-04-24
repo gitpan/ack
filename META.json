@@ -44,7 +44,8 @@
             "Term::ANSIColor" : "1.10",
             "Test::Harness" : "2.50",
             "Test::More" : "0.98",
-            "Text::ParseWords" : "3.1"
+            "Text::ParseWords" : "3.1",
+            "perl" : "5.008008"
          }
       }
    },
@@ -62,5 +63,5 @@
       },
       "x_MailingList" : "http://groups.google.com/group/ack-users"
    },
-   "version" : "2.03_01"
+   "version" : "2.03_02"
 }
