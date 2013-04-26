@@ -101,7 +101,7 @@ INVERSE_FILTER_PM = Inverse.pm
 ALL_PM            = $(ACK_PM) $(RESOURCE_PM) $(RESOURCES_PM) $(BASIC_PM) $(FILTER_PM) $(EXT_FILTER_PM) $(FIRST_FILTER_PM) $(IS_FILTER_PM) $(MATCH_FILTER_PM) $(DEFAULT_FILTER_PM) $(INVERSE_FILTER_PM) $(CONFIG_FINDER_PM) $(CONFIG_LOADER_PM) $(CONFIG_DEFAULT_PM)
 
 TEST_VERBOSE=0
-TEST_FILES=t/*.t
+TEST_FILES=t/*.t t/lib/*.t
 
 .PHONY: tags critic
 
@@ -151,8 +151,14 @@ time-ack202:
 time-ack20301:
 	time $(PERL) ./garage/ack20301 --noenv $(TIMER_ARGS)
 
-time-ack-standalone: ack-standalone
+time-ack20302:
+	time $(PERL) ./garage/ack20302 --noenv $(TIMER_ARGS)
+
+time-head: ack-standalone
 	time $(PERL) ./ack-standalone --noenv $(TIMER_ARGS)
+
+timings: ack-standalone
+	./dev/timings.pl
 
 MAKE_FRAG
 

@@ -36,15 +36,10 @@ Finally, ack takes settings from the command line.
 use strict;
 use warnings;
 
-use App::Ack ();
 use Cwd 3.00 ();
 use File::Spec 3.00;
 
-BEGIN {
-    if ($App::Ack::is_windows) {
-        require Win32;
-    }
-}
+use if ($^O =~ /MSWin32/ ? 1 : 0), "Win32";
 
 =head1 METHODS
 
@@ -54,8 +49,12 @@ Creates a new config finder.
 
 =cut
 
+our $is_win = 0;
+
 sub new {
     my ( $class ) = @_;
+
+    $is_win = $^O =~ /MSWin32/,
 
     return bless {}, $class;
 }
@@ -63,21 +62,39 @@ sub new {
 sub _remove_redundancies {
     my ( @configs ) = @_;
 
-    my %dev_and_inode_seen;
+    if ( $is_win ) {
+        # inode stat always returns 0 on windows,
+        # so just check filenames
+        my (%seen, @uniq);
 
-    foreach my $path ( @configs ) {
-        my ( $dev, $inode ) = (stat $path)[0, 1];
+        foreach my $path (@configs) {
+            push @uniq, $path unless $seen{$path};
+            $seen{$path} = 1;
+        }
 
-        if( defined($dev) ) {
-            if( $dev_and_inode_seen{"$dev:$inode"} ) {
-                undef $path;
-            }
-            else {
-                $dev_and_inode_seen{"$dev:$inode"} = 1;
+        return @uniq;
+    }
+
+    else {
+
+        my %dev_and_inode_seen;
+
+        foreach my $path ( @configs ) {
+            my ( $dev, $inode ) = (stat $path)[0, 1];
+
+            if( defined($dev) ) {
+                if( $dev_and_inode_seen{"$dev:$inode"} ) {
+                    undef $path;
+                }
+                else {
+                    $dev_and_inode_seen{"$dev:$inode"} = 1;
+                }
             }
         }
+
+        return grep { defined() } @configs;
+
     }
-    return grep { defined() } @configs;
 }
 
 sub _check_for_ackrc {
@@ -104,7 +121,7 @@ a list of them.
 sub find_config_files {
     my @config_files;
 
-    if($App::Ack::is_windows) {
+    if( $is_win ) {
         push @config_files, map { File::Spec->catfile($_, 'ackrc') } (
             Win32::GetFolderPath(Win32::CSIDL_COMMON_APPDATA()),
             Win32::GetFolderPath(Win32::CSIDL_APPDATA()),
@@ -113,6 +130,7 @@ sub find_config_files {
     else {
         push @config_files, '/etc/ackrc';
     }
+
 
     if ( $ENV{'ACKRC'} && -f $ENV{'ACKRC'} ) {
         push @config_files, $ENV{'ACKRC'};

@@ -18,7 +18,7 @@ my $tmpdir = $ENV{'TMPDIR'};
 my $home   = $ENV{'HOME'};
 
 chop $tmpdir if $tmpdir && $tmpdir =~ m{/$};
-chop $home   if $home   =~ m{/$};
+chop $home   if $home && $home   =~ m{/$};
 
 if ( $tmpdir && $tmpdir =~ /^$home/ ) {
     plan tests => 1;
@@ -39,6 +39,30 @@ sub touch_ackrc {
     return;
 }
 
+{
+# the tests blow up on Windows if the global files don't exist,
+# so here we create them if they don't, keeping track of the ones
+# we make so we can delete them later
+my @created_globals;
+
+sub set_up_globals {
+    my (@files) = @_;
+
+    foreach my $path (@files) {
+        unless ( -e $path ) {
+            touch_ackrc( $path );
+            push @created_globals, $path;
+        }
+    }
+}
+
+sub clean_up_globals {
+    foreach my $path (@created_globals) {
+        unlink $path;
+    }
+}
+
+}
 sub no_home (&) { ## no critic (ProhibitSubroutinePrototypes)
     my ( $fn ) = @_;
 
@@ -66,8 +90,9 @@ sub expect_ackrcs {
 }
 
 my @global_files;
+my $os_string = $^O;
 
-if ( $^O eq 'MSWin32') {
+if ( $os_string eq 'MSWin32') {
     require Win32;
 
     @global_files = map { File::Spec->catfile($_, 'ackrc') } (
@@ -79,6 +104,10 @@ else {
     @global_files = (
         '/etc/ackrc',
     );
+}
+
+if ( $os_string eq 'MSWin32' || $os_string eq 'cygwin' ) {
+    set_up_globals( @global_files );
 }
 
 my @std_files = (@global_files, File::Spec->catfile($ENV{'HOME'}, '.ackrc'));
@@ -210,4 +239,5 @@ do {
     unlink $ackrc->filename;
 };
 
+clean_up_globals();
 chdir $wd;

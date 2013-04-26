@@ -14,7 +14,7 @@ App::Ack - A container for functions for the ack program
 
 =head1 VERSION
 
-Version 2.03_02
+Version 2.03_03
 
 =cut
 
@@ -22,7 +22,7 @@ our $VERSION;
 our $GIT_REVISION;
 our $COPYRIGHT;
 BEGIN {
-    $VERSION = '2.03_02';
+    $VERSION = '2.03_03';
     $COPYRIGHT = 'Copyright 2005-2013 Andy Lester.';
     $GIT_REVISION = '';
 }
@@ -868,22 +868,21 @@ sub count_matches_in_resource {
     my ( $resource, $opt ) = @_;
 
     my $nmatches = 0;
-
     my $fh = $resource->open();
     if ( !$fh ) {
         if ( $App::Ack::report_bad_filenames ) {
             # XXX direct access to filename
             App::Ack::warn( "$resource->{filename}: $!" );
         }
-        return 0;
     }
-
-    while ( <$fh> ) {
-        my $does_match = /$opt->{regex}/o;
-        $does_match = !$does_match if $opt->{v};
-        ++$nmatches if $does_match;
+    else {
+        my $opt_v = $opt->{v};
+        my $re    = $opt->{regex};
+        while ( <$fh> ) {
+            ++$nmatches if (/$re/o xor $opt_v);
+        }
+        close $fh;
     }
-    close $fh;
 
     return $nmatches;
 }
@@ -891,23 +890,27 @@ sub count_matches_in_resource {
 sub resource_has_match {
     my ( $resource, $opt ) = @_;
 
+    my $has_match = 0;
     my $fh = $resource->open();
     if ( !$fh ) {
         if ( $App::Ack::report_bad_filenames ) {
             # XXX direct access to filename
             App::Ack::warn( "$resource->{filename}: $!" );
         }
-        return 0;
+    }
+    else {
+        my $opt_v = $opt->{v};
+        my $re    = $opt->{regex};
+        while ( <$fh> ) {
+            if (/$re/o xor $opt_v) {
+                $has_match = 1;
+                last;
+            }
+        }
+        close $fh;
     }
 
-    while ( <$fh> ) {
-        my $does_match = /$opt->{regex}/o;
-        $does_match = !$does_match if $opt->{v};
-        return 1 if $does_match;
-    }
-    close $fh;
-
-    return 0;
+    return $has_match;
 }
 
 sub get_context {
