@@ -38,4 +38,4 @@ resources:
   license: http://www.perlfoundation.org/artistic_license_2_0
   repository: git://github.com/petdance/ack2.git
   x_MailingList: http://groups.google.com/group/ack-users
-version: 2.03_03
+version: 2.04

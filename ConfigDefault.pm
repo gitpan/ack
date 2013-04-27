@@ -165,6 +165,9 @@ sub _options_block {
 # CSS http://www.w3.org/Style/CSS/
 --type-add=css:ext:css
 
+# Dart http://www.dartlang.org/
+--type-add=dart:ext:dart
+
 # Delphi http://en.wikipedia.org/wiki/Embarcadero_Delphi
 --type-add=delphi:ext:pas,int,dfm,nfm,dof,dpk,dproj,groupproj,bdsgroup,bdsproj
 
@@ -245,8 +248,8 @@ sub _options_block {
 --type-add=scheme:ext:scm,ss
 
 # Shell
---type-add=shell:ext:sh,bash,csh,tcsh,ksh,zsh
---type-add=shell:firstlinematch:/^#!.*\b(?:ba|t?c|k|z)?sh\b/
+--type-add=shell:ext:sh,bash,csh,tcsh,ksh,zsh,fish
+--type-add=shell:firstlinematch:/^#!.*\b(?:ba|t?c|k|z|fi)?sh\b/
 
 # Smalltalk http://www.smalltalk.org/
 --type-add=smalltalk:ext:st
