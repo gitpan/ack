@@ -24,7 +24,7 @@ use Getopt::Long 2.35 ();
 
 use Carp 1.04 ();
 
-our $VERSION = '2.04';
+our $VERSION = '2.05_01';
 # Check http://beyondgrep.com/ for updates
 
 # These are all our globals.
@@ -243,6 +243,7 @@ sub show_types {
 # Set default colors, load Term::ANSIColor
 sub load_colors {
     eval 'use Term::ANSIColor 1.10 ()';
+    eval 'use Win32::Console::ANSI' if $App::Ack::is_windows;
 
     $ENV{ACK_COLOR_MATCH}    ||= 'black on_yellow';
     $ENV{ACK_COLOR_FILENAME} ||= 'bold green';
@@ -295,7 +296,7 @@ sub get_file_id {
 }
 
 # Returns a regex object based on a string and command-line options.
-# Dies when the regex $str is undefinied (i.e. not given on command line).
+# Dies when the regex $str is undefined (i.e. not given on command line).
 
 sub build_regex {
     my $str = shift;
@@ -516,6 +517,8 @@ sub print_line_with_options {
                 foreach my $index_pair ( @capture_indices ) {
                     my ( $match_start, $match_end ) = @{$index_pair};
 
+                    next unless defined($match_start);
+
                     my $substring = substr( $line,
                         $offset + $match_start, $match_end - $match_start );
                     my $substitution = Term::ANSIColor::colored( $substring,
@@ -534,6 +537,7 @@ sub print_line_with_options {
 
                     $matched = 1;
                     my ( $match_start, $match_end ) = ($-[0], $+[0]);
+                    next unless defined($match_start);
 
                     my $substring = substr( $line, $match_start,
                         $match_end - $match_start );
@@ -842,7 +846,11 @@ sub main {
     }
 
     if ( not defined $opt->{color} ) {
-        $opt->{color} = !App::Ack::output_to_pipe() && !$App::Ack::is_windows;
+        my $windows_color = 1;
+        if ( $App::Ack::is_windows ) {
+            $windows_color = eval { require Win32::Console::ANSI; }
+        }
+        $opt->{color} = !App::Ack::output_to_pipe() && $windows_color;
     }
     if ( not defined $opt->{heading} and not defined $opt->{break}  ) {
         $opt->{heading} = $opt->{break} = !App::Ack::output_to_pipe();
@@ -1142,7 +1150,7 @@ count.
 
 =item B<--[no]color>, B<--[no]colour>
 
-B<--color> highlights the matching text.  B<--nocolor> supresses
+B<--color> highlights the matching text.  B<--nocolor> suppresses
 the color.  This is on by default unless the output is redirected.
 
 On Windows, this option is off by default unless the
@@ -1197,12 +1205,12 @@ as a path to search.
 =item B<--files-from=I<FILE>>
 
 The list of files to be searched is specified in I<FILE>.  The list of
-files are seperated by newlines.  If I<FILE> is C<->, the list is loaded
+files are separated by newlines.  If I<FILE> is C<->, the list is loaded
 from standard input.
 
 =item B<--[no]filter>
 
-Forces ack to act as if it were recieving input via a pipe.
+Forces ack to act as if it were receiving input via a pipe.
 
 =item B<--[no]follow>
 
@@ -1819,25 +1827,8 @@ searching behavior is driven by filetype.  B<If ack doesn't know
 what kind of file it is, ack ignores the file.>
 
 Use the C<-f> switch to see a list of files that ack will search
-for you.
-
-If you want ack to search files that it doesn't recognize, use the
-C<-a> switch.
-
-If you want ack to search every file, even ones that it always
-ignores like coredumps and backup files, use the C<-u> switch.
-
-=head2 Why does ack ignore unknown files by default?
-
-ack is designed by a programmer, for programmers, for searching
-large trees of code.  Most codebases have a lot files in them which
-aren't source files (like compiled object files, source control
-metadata, etc), and grep wastes a lot of time searching through all
-of those as well and returning matches from those files.
-
-That's why ack's behavior of not searching things it doesn't recognize
-is one of its greatest strengths: the speed you get from only
-searching the things that you want to be looking at.
+for you.  You can use the C<--show-types> switch to show which type
+ack thinks each file is.
 
 =head2 Wouldn't it be great if F<ack> did search & replace?
 
@@ -1924,15 +1915,15 @@ using C<--ignore-ack-defaults>.
 
 Options are then loaded from the global ackrc.  This is located at
 C</etc/ackrc> on Unix-like systems, and
-C<C:\Documents and Settings\All Users\Application Data> on Windows.
+C<C:\Documents and Settings\All Users\Application Data\ackrc> on Windows.
 This can be omitted using C<--noenv>.
 
 =item * User ackrc
 
 Options are then loaded from the user's ackrc.  This is located at
 C<$HOME/.ackrc> on Unix-like systems, and
-C<C:\Documents and Settings\$USER\Application Data>.  If a different
-ackrc is desired, it may be overriden with the C<$ACKRC> environment
+C<C:\Documents and Settings\$USER\Application Data\ackrc>.  If a different
+ackrc is desired, it may be overridden with the C<$ACKRC> environment
 variable.
 This can be omitted using C<--noenv>.
 
@@ -1945,7 +1936,7 @@ directory, etc.  This can be omitted using C<--noenv>.
 
 =item * ACK_OPTIONS
 
-Options are then loaded from the enviroment variable C<ACK_OPTIONS>.  This can
+Options are then loaded from the environment variable C<ACK_OPTIONS>.  This can
 be omitted using C<--noenv>.
 
 =item * Command line
@@ -1965,7 +1956,7 @@ A lot of changes were made for ack 2; here is a list of them.
 =item *
 
 When no selectors are specified, ack 1.x only searches through files that
-it can map to a file type.  ack 2.x, by constrast, will search through
+it can map to a file type.  ack 2.x, by contrast, will search through
 every regular, non-binary file that is not explicitly ignored via
 B<--ignore-file> or B<--ignore-dir>.  This is similar to the behavior of the
 B<-a/--all> option in ack 1.x.
@@ -2154,6 +2145,8 @@ L<https://github.com/petdance/ack2>
 How appropriate to have I<ack>nowledgements!
 
 Thanks to everyone who has contributed to ack in any way, including
+Ron Savage,
+Konrad Borowski,
 Dale Sedivic,
 Michael McClimon,
 Andrew Black,

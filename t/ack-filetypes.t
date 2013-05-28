@@ -18,6 +18,7 @@ batch
 cc
 cfmx
 clojure
+coffeescript
 cpp
 csharp
 css
@@ -32,7 +33,9 @@ hh
 html
 java
 js
+json
 jsp
+less
 lisp
 lua
 make
@@ -47,6 +50,7 @@ python
 rake
 ruby
 rust
+sass
 scala
 scheme
 shell

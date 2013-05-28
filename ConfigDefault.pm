@@ -80,7 +80,8 @@ sub _options_block {
 # Perl Devel::Cover module's output directory
 --ignore-directory=is:cover_db
 
-
+# Node modules created by npm
+--ignore-directory=is:node_modules
 
 # Files to ignore
 # Backup files
@@ -97,7 +98,7 @@ sub _options_block {
 --ignore-file=match:/core\.\d+$/
 
 # minified Javascript
---ignore-file=match:/[.]min[.]js$/
+--ignore-file=match:/[.-]min[.]js$/
 --ignore-file=match:/[.]js[.]min$/
 
 # minified CSS
@@ -108,7 +109,7 @@ sub _options_block {
 # Filetypes defined
 
 # Perl http://perl.org/
---type-add=perl:ext:pl,pm,pod,t
+--type-add=perl:ext:pl,pm,pod,t,psgi
 --type-add=perl:firstlinematch:/^#!.*\bperl/
 
 # Makefiles http://www.gnu.org/s/make/
@@ -156,6 +157,9 @@ sub _options_block {
 # C header files
 --type-add=hh:ext:h
 
+# CoffeeScript http://coffeescript.org/
+--type-add=coffeescript:ext:coffee
+
 # C++
 --type-add=cpp:ext:cpp,cc,cxx,m,hpp,hh,h,hxx
 
@@ -201,6 +205,12 @@ sub _options_block {
 # JSP http://www.oracle.com/technetwork/java/javaee/jsp/index.html
 --type-add=jsp:ext:jsp,jspx,jhtm,jhtml
 
+# JSON http://www.json.org/
+--type-add=json:ext:json
+
+# Less http://www.lesscss.org/
+--type-add=less:ext:less
+
 # Common Lisp http://common-lisp.net/
 --type-add=lisp:ext:lisp,lsp
 
@@ -240,6 +250,9 @@ sub _options_block {
 
 # Rust http://www.rust-lang.org/
 --type-add=rust:ext:rs
+
+# Sass http://sass-lang.com
+--type-add=sass:ext:sass,scss
 
 # Scala http://www.scala-lang.org/
 --type-add=scala:ext:scala

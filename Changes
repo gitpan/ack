@@ -1,5 +1,30 @@
 History file for ack.  http://beyondgrep.com/
 
+2.05_01 Tue May 28 10:12:04 CDT 2013
+====================================
+[ENHANCEMENTS]
+We now ignore the node_modules directories created by npm.  Thanks,
+Konrad Borowski.
+
+--pager without an argument implies --pager=$PAGER.
+
+--perl now recognizes Plack-style .psgi files.  Thanks, Ron Savage.
+
+Added filetypes for Coffescript, JSON, LESS, and Sass.
+
+[FIXES]
+Command-line options now override options set in ackrc files.
+
+ACK_PAGER and ACK_PAGER_COLOR now work as advertised.
+
+Fix a bug resulting in uninitialized variable warnings when more
+than one capture group was specified in the search pattern.
+
+Make sure ack is happy to build and test under cron and other
+console-less environments.
+
+Colored output is now supported and on by default on Windows.
+
 2.04    Fri Apr 26 22:47:55 CDT 2013
 ====================================
 ack now runs on a standard Perl 5.8.8 install with no module updates.

@@ -73,6 +73,25 @@ sub process_filter_spec {
     }
 }
 
+sub uninvert_filter {
+    my ( $opt, @filters ) = @_;
+
+    return unless defined $opt->{filters} && @filters;
+
+    # loop through all the registered filters
+    # If we hit one that matches this extension and it's inverted, we need
+    # to delete it from the options
+    for ( my $i = 0; $i < @{ $opt->{filters} }; $i++ ) {
+        my $opt_filter = @{ $opt->{filters} }[$i];
+
+        # XXX do a real list comparison? This just checks string equivalence
+        if ( $opt_filter->is_inverted() && "$opt_filter->{filter}" eq "@filters" ) {
+            splice @{ $opt->{filters} }, $i, 1;
+            $i--;
+        }
+    }
+}
+
 sub process_filetypes {
     my ( $opt, $arg_sources ) = @_;
 
@@ -97,6 +116,9 @@ sub process_filetypes {
             my @filters = @{ $App::Ack::mappings{$name} };
             if ( not $value ) {
                 @filters = map { $_->invert() } @filters;
+            }
+            else {
+                uninvert_filter( $opt, @filters );
             }
 
             push @{ $opt->{'filters'} }, @filters;
@@ -256,7 +278,11 @@ EOT
         'n|no-recurse'      => \$opt->{n},
         o                   => sub { $opt->{output} = '$&' },
         'output=s'          => \$opt->{output},
-        'pager=s'           => \$opt->{pager},
+        'pager:s'           => sub {
+            my ( undef, $value ) = @_;
+
+            $opt->{pager} = $value || $ENV{PAGER};
+        },
         'noignore-directory|noignore-dir=s'
                             => sub {
                                 my ( undef, $dir ) = @_;
@@ -601,7 +627,9 @@ sub check_for_mutually_exclusive_options {
 sub process_args {
     my $arg_sources = \@_;
 
-    my %opt;
+    my %opt = (
+        pager => $ENV{ACK_PAGER_COLOR} || $ENV{ACK_PAGER},
+    );
 
     check_for_mutually_exclusive_options($arg_sources);
 
