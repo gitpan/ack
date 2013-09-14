@@ -29,12 +29,8 @@ Build status: [![Build Status](https://travis-ci.org/petdance/ack2.png?branch=de
 
 # Development
 
-Development is *not* done on master.  We use a dev branch named
-`dev`, and from there topic branches named for a specific topic.
+[Developer's Guide](DEVELOPERS.md)
 
-    master -> dev -> docs
-                 \-> speedups
-                 \-> issue473
+# Community
 
-The only time we merge `dev` down to `master` is when doing a
-release.  There are no branches off of `master` other than `dev`.
+TODO

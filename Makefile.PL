@@ -47,6 +47,7 @@ my %parms = (
         'Test::Harness'     => '2.50', # Something reasonably newish
         'Test::More'        => '0.98', # For subtest()
         'Text::ParseWords'  => '3.1',
+        ( $^O eq 'Win32' ? ('Win32::ShellQuote' => '0.002001') : () ),
     },
     MAN3PODS            => {}, # no need for man pages for any of the .pm files
     dist                => { COMPRESS => 'gzip -9f', SUFFIX => 'gz', },
@@ -118,7 +119,7 @@ critic:
 	perlcritic -1 -q -profile perlcriticrc $(ACK) $(ALL_PM) t/*.t
 
 ack-standalone : $(ACK) $(ALL_PM) squash Makefile
-	$(PERL) squash %s $(ACK) File::Next $(ALL_PM) > ack-standalone
+	$(PERL) squash %s File::Next $(ALL_PM) $(ACK) > ack-standalone
 	$(FIXIN) ack-standalone
 	-$(NOECHO) $(CHMOD) $(PERM_RWX) ack-standalone
 	$(PERL) -i -p -e "s/\\\$$GIT_REVISION\s*=\s*''/\\\$$GIT_REVISION = q{$$(git rev-parse --short HEAD)}/" ack-standalone

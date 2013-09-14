@@ -1,5 +1,13 @@
 History file for ack.  http://beyondgrep.com/
 
+2.09_01 Sat Sep 14 16:46:01 CDT 2013
+====================================
+[FIXES]
+Fix the test suite for Win32.  Many thanks to Christian Walde for
+bringing the severity of this issue to our attention, as well as
+providing a Win32 development environment for us to work with.
+
+
 2.08    Thu Aug 22 23:11:45 CDT 2013
 ====================================
 [ENHANCEMENTS]
@@ -29,6 +37,12 @@ of parentheses.  This has been fixed.  (Issue #276)
 
 Ack would get confused when trying to colorize the output in
 DOS-format files.  This has been fixed.  (Issue #145)
+
+
+2.06
+====================================
+This mistake of an upload lived for only about 15 minutes.
+
 
 
 2.05_01 Tue May 28 10:12:04 CDT 2013

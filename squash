@@ -22,7 +22,7 @@ EOCOMMENT
 my $debug_mode = grep { $_ eq '--debug' } @ARGV;
 @ARGV          = grep { $_ ne '--debug' } @ARGV;
 
-my $code;
+my $code = "#!/usr/bin/env perl\n$NO_EDIT_COMMENT\n";
 for my $arg ( @ARGV ) {
     my $filename = $arg;
     if ( $arg =~ /::/ ) {
@@ -62,8 +62,8 @@ for my $arg ( @ARGV ) {
         }
 
         # Replace the shebang line and append 'no edit' comment
-        if ( s{^#!.+}{#!/usr/bin/env perl} ) {
-            $_ .= $NO_EDIT_COMMENT;
+        if ( s{^#!.+}{package main;} ) {
+            # skip the shebang line and replace it with package statement
         }
 
         # Remove Perl::Critic comments.
@@ -74,6 +74,7 @@ for my $arg ( @ARGV ) {
     close $fh;
 }
 
+# We only use two of the four constructors in File::Next, so delete the other two.
 for my $unused_func ( qw( dirs everything ) ) {
     $code =~ s/^sub $unused_func\b.*?^}//sm; # It's OK if we can't find it
 }

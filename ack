@@ -24,7 +24,7 @@ use Getopt::Long 2.35 ();
 
 use Carp 1.04 ();
 
-our $VERSION = '2.08';
+our $VERSION = '2.09_01';
 # Check http://beyondgrep.com/ for updates
 
 # These are all our globals.
@@ -2164,6 +2164,7 @@ L<https://github.com/petdance/ack2>
 How appropriate to have I<ack>nowledgements!
 
 Thanks to everyone who has contributed to ack in any way, including
+Christian Walde,
 Charles Lee,
 Joe McMahon,
 John Warwick,
