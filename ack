@@ -19,12 +19,13 @@ use App::Ack::Filter::FirstLineMatch;
 use App::Ack::Filter::Inverse;
 use App::Ack::Filter::Is;
 use App::Ack::Filter::Match;
+use App::Ack::Filter::Collection;
 
 use Getopt::Long 2.35 ();
 
 use Carp 1.04 ();
 
-our $VERSION = '2.09_01';
+our $VERSION = '2.09_02';
 # Check http://beyondgrep.com/ for updates
 
 # These are all our globals.
@@ -38,19 +39,19 @@ MAIN: {
 
     # Do preliminary arg checking;
     my $env_is_usable = 1;
-    for ( @ARGV ) {
-        last if ( $_ eq '--' );
+    for my $arg ( @ARGV ) {
+        last if ( $arg eq '--' );
 
         # Get the --thpppt, --bar, --cathy checking out of the way.
-        /^--th[pt]+t+$/ && App::Ack::_thpppt($_);
-        /^--bar$/ && App::Ack::_bar();
-        /^--cathy$/ && App::Ack::_cathy();
+        $arg =~ /^--th[pt]+t+$/ and App::Ack::_thpppt($arg);
+        $arg eq '--bar'         and App::Ack::_bar();
+        $arg eq '--cathy'       and App::Ack::_cathy();
 
         # See if we want to ignore the environment. (Don't tell Al Gore.)
-        if ( /^--(no)?env$/ ) {
-            $env_is_usable = defined $1 ? 0 : 1;
-        }
+        $arg eq '--env'         and $env_is_usable = 1;
+        $arg eq '--noenv'       and $env_is_usable = 0;
     }
+
     if ( !$env_is_usable ) {
         my @keys = ( 'ACKRC', grep { /^ACK_/ } keys %ENV );
         delete @ENV{@keys};
@@ -113,22 +114,32 @@ sub _compile_file_filter {
     my $ifiles = $opt->{ifiles};
     $ifiles  ||= [];
 
-    my @ifiles_filters = map {
-        my $filter;
-
-        if ( /^(\w+):(.+)/ ) {
+    my $ifiles_filters = App::Ack::Filter::Collection->new();
+    
+    foreach my $filter_spec (@{$ifiles}) {
+        if ( $filter_spec =~ /^(\w+):(.+)/ ) {
             my ($how,$what) = ($1,$2);
-            $filter = App::Ack::Filter->create_filter($how, split(/,/, $what));
+            my $filter = App::Ack::Filter->create_filter($how, split(/,/, $what));
+            $ifiles_filters->add($filter);
         }
         else {
-            Carp::croak( qq{Invalid filter specification "$_"} );
+            Carp::croak( qq{Invalid filter specification "$filter_spec"} );
         }
-        $filter
-    } @{$ifiles};
+    }
 
     my $filters         = $opt->{'filters'} || [];
-    my $inverse_filters = [ grep {  $_->is_inverted() } @{$filters} ];
-    @{$filters}         =   grep { !$_->is_inverted() } @{$filters};
+    my $direct_filters = App::Ack::Filter::Collection->new();
+    my $inverse_filters = App::Ack::Filter::Collection->new();
+
+    foreach my $filter (@{$filters}) {
+        if ($filter->is_inverted()) {
+            # We want to check if files match the uninverted filters
+            $inverse_filters->add($filter->invert());
+        }
+        else {
+            $direct_filters->add($filter);
+        }
+    }
 
     my %is_member_of_starting_set = map { (get_file_id($_) => 1) } @{$start};
 
@@ -202,28 +213,15 @@ sub _compile_file_filter {
 
         my $resource = App::Ack::Resource::Basic->new($File::Next::name);
         return 0 if ! $resource;
-        foreach my $filter (@ifiles_filters) {
-            return 0 if $filter->filter($resource);
+        if ( $ifiles_filters->filter($resource) ) {
+            return 0;
         }
-        my $match_found = 1;
-        if ( @{$filters} ) {
-            $match_found = 0;
 
-            foreach my $filter (@{$filters}) {
-                if ($filter->filter($resource)) {
-                    $match_found = 1;
-                    last;
-                }
-            }
-        }
+        my $match_found = $direct_filters->filter($resource);
+
         # Don't bother invoking inverse filters unless we consider the current resource a match
-        if ( $match_found && @{$inverse_filters} ) {
-            foreach my $filter ( @{$inverse_filters} ) {
-                if ( not $filter->filter( $resource ) ) {
-                    $match_found = 0;
-                    last;
-                }
-            }
+        if ( $match_found && $inverse_filters->filter( $resource ) ) {
+            $match_found = 0;
         }
         return $match_found;
     };
@@ -2164,6 +2162,8 @@ L<https://github.com/petdance/ack2>
 How appropriate to have I<ack>nowledgements!
 
 Thanks to everyone who has contributed to ack in any way, including
+Michael Beijen,
+Alexandr Ciornii,
 Christian Walde,
 Charles Lee,
 Joe McMahon,

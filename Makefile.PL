@@ -29,10 +29,12 @@ my %parms = (
         'Match.pm'          => '$(INST_LIBDIR)/App/Ack/Filter/Match.pm',
         'Default.pm'        => '$(INST_LIBDIR)/App/Ack/Filter/Default.pm',
         'Inverse.pm'        => '$(INST_LIBDIR)/App/Ack/Filter/Inverse.pm',
+        'Collection.pm'     => '$(INST_LIBDIR)/App/Ack/Filter/Collection.pm',
+        'IsGroup.pm'        => '$(INST_LIBDIR)/App/Ack/Filter/IsGroup.pm',
+        'ExtensionGroup.pm' => '$(INST_LIBDIR)/App/Ack/Filter/ExtensionGroup.pm',
     },
     EXE_FILES               => [ 'ack' ],
 
-    MIN_PERL_VERSION        => 5.008008,
     PREREQ_PM => {
         'Carp'              => '1.04',
         'Cwd'               => '3.00',
@@ -47,7 +49,7 @@ my %parms = (
         'Test::Harness'     => '2.50', # Something reasonably newish
         'Test::More'        => '0.98', # For subtest()
         'Text::ParseWords'  => '3.1',
-        ( $^O eq 'Win32' ? ('Win32::ShellQuote' => '0.002001') : () ),
+        ( $^O eq 'MSWin32' ? ('Win32::ShellQuote' => '0.002001') : () ),
     },
     MAN3PODS            => {}, # no need for man pages for any of the .pm files
     dist                => { COMPRESS => 'gzip -9f', SUFFIX => 'gz', },
@@ -68,6 +70,10 @@ if ( $ExtUtils::MakeMaker::VERSION ge '6.46' ) {
             MailingList => 'http://groups.google.com/group/ack-users',
         }
     };
+}
+
+if ( $ExtUtils::MakeMaker::VERSION ge '6.48' ) {
+    $parms{MIN_PERL_VERSION} = 5.008008;
 }
 
 WriteMakefile( %parms );
@@ -99,7 +105,10 @@ IS_FILTER_PM      = Is.pm
 MATCH_FILTER_PM   = Match.pm
 DEFAULT_FILTER_PM = Default.pm
 INVERSE_FILTER_PM = Inverse.pm
-ALL_PM            = $(ACK_PM) $(RESOURCE_PM) $(RESOURCES_PM) $(BASIC_PM) $(FILTER_PM) $(EXT_FILTER_PM) $(FIRST_FILTER_PM) $(IS_FILTER_PM) $(MATCH_FILTER_PM) $(DEFAULT_FILTER_PM) $(INVERSE_FILTER_PM) $(CONFIG_FINDER_PM) $(CONFIG_LOADER_PM) $(CONFIG_DEFAULT_PM)
+COLLECT_FILTER_PM = Collection.pm
+ISGRP_FILTER_PM   = IsGroup.pm
+EXTGRP_FILTER_PM  = ExtensionGroup.pm
+ALL_PM            = $(ACK_PM) $(RESOURCE_PM) $(RESOURCES_PM) $(BASIC_PM) $(FILTER_PM) $(EXT_FILTER_PM) $(FIRST_FILTER_PM) $(IS_FILTER_PM) $(MATCH_FILTER_PM) $(DEFAULT_FILTER_PM) $(INVERSE_FILTER_PM) $(COLLECT_FILTER_PM) $(ISGRP_FILTER_PM) $(EXTGRP_FILTER_PM) $(CONFIG_FINDER_PM) $(CONFIG_LOADER_PM) $(CONFIG_DEFAULT_PM)
 
 TEST_VERBOSE=0
 TEST_FILES=t/*.t t/lib/*.t
@@ -116,7 +125,7 @@ tags:
 		--languages=Perl --langmap=Perl:+.t \
 
 critic:
-	perlcritic -1 -q -profile perlcriticrc $(ACK) $(ALL_PM) t/*.t
+	perlcritic -1 -q -profile perlcriticrc $(ACK) $(ALL_PM) t/*.t t/lib/*.t xt/*.t
 
 ack-standalone : $(ACK) $(ALL_PM) squash Makefile
 	$(PERL) squash %s File::Next $(ALL_PM) $(ACK) > ack-standalone

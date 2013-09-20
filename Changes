@@ -1,5 +1,17 @@
 History file for ack.  http://beyondgrep.com/
 
+2.09_02 Fri Sep 20 14:15:55 CDT 2013
+====================================
+[FIXES]
+Fixed Win32-detection in the Makefile.PL.  Thanks, Michael Beijen
+and Alexandr Ciornii.
+
+More compatibility fixes for Perl 5.8.8.
+
+[ENHANCEMENTS]
+Added Matlab support.  Thanks, Zertrin.
+
+
 2.09_01 Sat Sep 14 16:46:01 CDT 2013
 ====================================
 [FIXES]
