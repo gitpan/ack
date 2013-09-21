@@ -9,7 +9,7 @@ App::Ack - A container for functions for the ack program
 
 =head1 VERSION
 
-Version 2.09_02
+Version 2.09_03
 
 =cut
 
@@ -17,7 +17,7 @@ our $VERSION;
 our $GIT_REVISION;
 our $COPYRIGHT;
 BEGIN {
-    $VERSION = '2.09_02';
+    $VERSION = '2.09_03';
     $COPYRIGHT = 'Copyright 2005-2013 Andy Lester.';
     $GIT_REVISION = '';
 }
@@ -49,7 +49,7 @@ BEGIN {
     $is_filter_mode = -p STDIN;
 
     $is_cygwin       = ($^O eq 'cygwin');
-    $is_windows      = ($^O =~ /MSWin32/);
+    $is_windows      = ($^O eq 'MSWin32');
     $dir_sep_chars   = $is_windows ? quotemeta( '\\/' ) : quotemeta( File::Spec->catfile( '', '' ) );
 }
 
