@@ -139,8 +139,7 @@ sub run_ack {
         fail( q{Automatically fail stderr check for TODO tests.} );
     }
     else {
-        is( scalar @{$stderr}, 0, "Should have no output to stderr: ack @args" )
-            or diag( join( "\n", "STDERR:", @{$stderr} ) );
+        is_deeply( $stderr, [], "Should have no output to stderr: ack @args" );
     }
 
     return wantarray ? @{$stdout} : join( "\n", @{$stdout} );
@@ -261,11 +260,11 @@ sub run_cmd {
 
             if(my $input = $options->{'input'}) {
                 # XXX check error
-                open STDIN, '-|', @$input;
+                open STDIN, '-|', @$input or die "Can't open: $!";
             }
 
-            open STDOUT, '>&', $stdout_write;
-            open STDERR, '>&', $stderr_write;
+            open STDOUT, '>&', $stdout_write or die "Can't open: $!";
+            open STDERR, '>&', $stderr_write or die "Can't open: $!";
 
             exec @cmd;
         }
@@ -351,7 +350,7 @@ sub lists_match {
         $path = File::Next::reslash( $path ); ## no critic (Variables::ProhibitPackageVars)
     }
 
-    return subtest "lists_match($msg)" => sub {
+    return subtest "lists_match( $msg )" => sub {
         plan tests => 1;
 
         my $rc = eval 'use Test::Differences; 1;';
@@ -381,7 +380,7 @@ sub ack_lists_match {
 
     my @results = run_ack( @args );
 
-    return subtest "ack_lists_match($message)" => sub {
+    return subtest "ack_lists_match( $message )" => sub {
         plan tests => 1;
 
         my $ok = lists_match( \@results, $expected, $message );
@@ -397,7 +396,7 @@ sub sets_match {
     my @expected = @{+shift};
     my $msg      = check_message( shift );
 
-    return subtest "sets_match($msg)" => sub {
+    return subtest "sets_match( $msg )" => sub {
         plan tests => 1;
 
         return lists_match( [sort @actual], [sort @expected], $msg );
@@ -515,9 +514,9 @@ BEGIN {
                 }
                 $slave->set_raw();
 
-                open STDIN,  '<&', $slave->fileno();
-                open STDOUT, '>&', $slave->fileno();
-                open STDERR, '>&', $slave->fileno();
+                open STDIN,  '<&', $slave->fileno() or die "Can't open: $!";
+                open STDOUT, '>&', $slave->fileno() or die "Can't open: $!";
+                open STDERR, '>&', $slave->fileno() or die "Can't open: $!";
 
                 close $slave;
 
