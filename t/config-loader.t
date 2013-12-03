@@ -13,6 +13,11 @@ use File::Temp;
 use App::Ack::Filter::Default;
 use App::Ack::ConfigLoader;
 
+local $ENV{PAGER};
+local $ENV{ACK_PAGER};
+local $ENV{ACK_PAGER_COLOR};
+local $ENV{ACK_OPTIONS};
+
 my %defaults = (
     after_context             => undef,
     before_context            => undef,
@@ -225,8 +230,8 @@ sub test_loader {
             local @ARGV;
 
             my @arg_sources = (
-                ARGV => $argv,
-                map { $_ => scalar read_file($_) } @files,
+                { name => 'ARGV', contents => $argv },
+                map { +{ name => $_, contents => scalar read_file($_) } } @files,
             );
 
             $got_opts    = App::Ack::ConfigLoader::process_args( @arg_sources );

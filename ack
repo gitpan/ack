@@ -3,7 +3,7 @@
 use strict;
 use warnings;
 
-our $VERSION = '2.11_02'; # Check http://beyondgrep.com/ for updates
+our $VERSION = '2.12'; # Check http://beyondgrep.com/ for updates
 
 use 5.008008;
 use Getopt::Long 2.35 ();
@@ -112,7 +112,7 @@ sub _compile_file_filter {
     $ifiles  ||= [];
 
     my $ifiles_filters = App::Ack::Filter::Collection->new();
-    
+
     foreach my $filter_spec (@{$ifiles}) {
         if ( $filter_spec =~ /^(\w+):(.+)/ ) {
             my ($how,$what) = ($1,$2);
@@ -709,6 +709,8 @@ sub print_line_with_context {
                 }
 
                 chomp $line;
+                local $opt->{column};
+
                 print_line_with_options($opt, $filename, $line, $context_line_no, '-');
                 $previous_line_printed = $context_line_no;
                 $offset--;
@@ -734,8 +736,14 @@ sub print_line_with_context {
                 next;
             }
             chomp $line;
-            my $separator = ($opt->{regex} && does_match( $opt, $line )) ? ':' : '-';
-            print_line_with_options($opt, $filename, $line, $. + $offset, $separator);
+
+            if ( $opt->{regex} && does_match( $opt, $line ) ) {
+                print_line_with_options($opt, $filename, $line, $. + $offset, ':');
+            }
+            else {
+                local $opt->{column};
+                print_line_with_options($opt, $filename, $line, $. + $offset, '-');
+            }
             $previous_line_printed = $. + $offset;
             $offset++;
         }
@@ -841,7 +849,7 @@ sub main {
         $| = 1;
     }
 
-    if ( not defined $opt->{color} ) {
+    if ( !defined($opt->{color}) && !$opt->{g} ) {
         my $windows_color = 1;
         if ( $App::Ack::is_windows ) {
             $windows_color = eval { require Win32::Console::ANSI; }
@@ -942,7 +950,9 @@ RESOURCES:
                     show_types( $resource, $ors );
                 }
                 else {
-                    App::Ack::print( $resource->name, $ors );
+                    local $opt->{show_filename} = 0;
+
+                    print_line_with_options($opt, '', $resource->name, 0, $ors);
                 }
                 ++$nmatches;
                 last RESOURCES if defined($max_count) && $nmatches >= $max_count;
@@ -1222,6 +1232,8 @@ This is off by default.
 =item B<-g I<PATTERN>>
 
 Print files where the relative path + filename matches I<PATTERN>.
+This option can be combined with B<--color> to make it easier to spot
+the match.
 
 =item B<--[no]group>
 
@@ -2160,6 +2172,10 @@ L<https://github.com/petdance/ack2>
 How appropriate to have I<ack>nowledgements!
 
 Thanks to everyone who has contributed to ack in any way, including
+Fraser Tweedale,
+RaE<aacute>l GundE<aacute>n,
+Steffen Jaeckel,
+Stephan Hohe,
 Michael Beijen,
 Alexandr Ciornii,
 Christian Walde,

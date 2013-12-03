@@ -85,6 +85,7 @@ t/file-permission.t
 t/filetypes.t
 t/filter.t
 t/firstlinematch-filter.t
+t/highlighting.t
 t/illegal-regex.t
 t/incomplete-last-line.t
 t/inverted-file-filter.t
@@ -213,4 +214,5 @@ t/text/shut-up-be-happy.txt
 
 xt/man.t
 xt/pod.t
-META.yml                                 Module meta-data (added by MakeMaker)
+META.yml                                 Module YAML meta-data (added by MakeMaker)
+META.json                                Module JSON meta-data (added by MakeMaker)

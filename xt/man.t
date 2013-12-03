@@ -11,6 +11,7 @@ sub strip_special_chars {
     my ( $s ) = @_;
 
     $s =~ s/.[\b]//g;
+    $s =~ s/\e\[?.*?[\@-~]//g;
 
     return $s;
 }
@@ -102,7 +103,7 @@ sub check_for_option_in_man_output {
         }
     }
 
-    ok $found, "Option '$expected_option' found in --man output";
+    return ok( $found, "Option '$expected_option' found in --man output" );
 }
 
 my @options = get_options();

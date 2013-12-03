@@ -5,6 +5,7 @@ use App::Ack ();
 use Cwd ();
 use File::Spec ();
 use File::Temp ();
+use Term::ANSIColor ();
 use Test::More;
 
 my $orig_wd;
@@ -22,7 +23,7 @@ sub check_message {
 }
 
 sub prep_environment {
-    delete @ENV{qw( ACK_OPTIONS ACKRC ACK_PAGER HOME )};
+    delete @ENV{qw( ACK_OPTIONS ACKRC ACK_PAGER HOME ACK_COLOR_MATCH ACK_COLOR_FILENAME ACK_COLOR_LINE )};
     $orig_wd = Cwd::getcwd();
 }
 
@@ -32,6 +33,34 @@ sub is_windows {
 
 sub is_cygwin {
     return $^O eq 'cygwin';
+}
+
+sub is_empty_array {
+    local $Test::Builder::Level = $Test::Builder::Level + 1;
+
+    my $aref = shift;
+    my $msg  = shift;
+
+    my $ok = defined($aref) && (ref($aref) eq 'ARRAY') && (scalar(@{$aref}) == 0);
+
+    if ( !ok( $ok, $msg ) ) {
+        diag( explain( $aref ) );
+    }
+    return $ok;
+}
+
+sub is_nonempty_array {
+    local $Test::Builder::Level = $Test::Builder::Level + 1;
+
+    my $aref = shift;
+    my $msg  = shift;
+
+    my $ok = defined($aref) && (ref($aref) eq 'ARRAY') && (scalar(@{$aref}) > 0);
+
+    if ( !ok( $ok, $msg ) ) {
+        diag( explain( $aref ) );
+    }
+    return $ok;
 }
 
 sub build_ack_invocation {
@@ -139,7 +168,7 @@ sub run_ack {
         fail( q{Automatically fail stderr check for TODO tests.} );
     }
     else {
-        is_deeply( $stderr, [], "Should have no output to stderr: ack @args" );
+        is_empty_array( $stderr, "Should have no output to stderr: ack @args" );
     }
 
     return wantarray ? @{$stdout} : join( "\n", @{$stdout} );
@@ -453,6 +482,39 @@ sub record_option_coverage {
 
     return;
 }
+
+=head2 colorize( $big_long_string )
+
+Turns a multi-line input string into its corresponding array of lines, with colorized transformations.
+
+    <text> gets turned to filename color.
+    {text} gets turned to line number color.
+    (text) gets turned to highlight color.
+
+=cut
+
+sub colorize {
+    my $input = shift;
+
+    my @lines = split( /\n/, $input );
+
+    for my $line ( @lines ) {
+        # File name
+        $line =~ s/<(.+?)>/Term::ANSIColor::colored($1, 'bold green')/eg;
+
+        # Line number
+        $line =~ s/\{(.+?)\}/Term::ANSIColor::colored($1, 'bold yellow')/eg;
+
+        # Matches
+        my $n;
+        $n += $line =~ s/\((.+?)\)/Term::ANSIColor::colored($1, 'black on_yellow')/eg;
+
+        $line .= "\033[0m\033[K" if $n;
+    }
+
+    return @lines;
+}
+
 
 BEGIN {
     my $has_io_pty = eval {

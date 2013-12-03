@@ -3,8 +3,11 @@
 use warnings;
 use strict;
 
-use Test::More tests => 6;
+use Cwd ();
+use Test::More tests => 13;
 use File::Next ();
+use File::Spec ();
+use File::Temp ();
 
 use lib 't';
 use Util;
@@ -92,6 +95,58 @@ OUTPUT_DOUBLE_QUOTES: {
     );
 
     ack_sets_match( [ @args, @files ], \@expected, 'Find all the things with --output function' );
+}
+
+my $wd      = Cwd::getcwd();
+my $tempdir = File::Temp->newdir;
+mkdir File::Spec->catdir($tempdir->dirname, 'subdir');
+
+PROJECT_ACKRC_OUTPUT_FORBIDDEN: {
+    my @files = ( File::Spec->rel2abs('t/text/') );
+    my @args = qw/ --env question(\\S+) /;
+
+    chdir $tempdir->dirname;
+    write_file '.ackrc', "--output=foo\n";
+
+    my ( $stdout, $stderr ) = run_ack_with_stderr(@args, @files);
+
+    is_empty_array( $stdout );
+    is_nonempty_array( $stderr );
+    like( $stderr->[0], qr/--output is illegal in project ackrcs/ ) or diag(explain($stderr));
+
+    chdir $wd;
+}
+
+HOME_ACKRC_OUTPUT_PERMITTED: {
+    my @files = ( File::Spec->rel2abs('t/text/') );
+    my @args = qw/ --env question(\\S+) /;
+
+    write_file(File::Spec->catfile($tempdir->dirname, '.ackrc'), "--output=foo\n");
+    chdir File::Spec->catdir($tempdir->dirname, 'subdir');
+    local $ENV{'HOME'} = $tempdir->dirname;
+
+    my ( $stdout, $stderr ) = run_ack_with_stderr(@args, @files);
+
+    is_nonempty_array( $stdout );
+    is_empty_array( $stderr );
+
+    chdir $wd;
+}
+
+ACKRC_ACKRC_OUTPUT_PERMITTED: {
+    my @files = ( File::Spec->rel2abs('t/text/') );
+    my @args = qw/ --env question(\\S+) /;
+
+    write_file(File::Spec->catfile($tempdir->dirname, '.ackrc'), "--output=foo\n");
+    chdir File::Spec->catdir($tempdir->dirname, 'subdir');
+    local $ENV{'ACKRC'} = File::Spec->catfile($tempdir->dirname, '.ackrc');
+
+    my ( $stdout, $stderr ) = run_ack_with_stderr(@args, @files);
+
+    is_nonempty_array( $stdout );
+    is_empty_array( $stderr );
+
+    chdir $wd;
 }
 
 done_testing();
