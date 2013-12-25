@@ -1,4 +1,4 @@
-#!perl
+#!perl -T
 
 use strict;
 use warnings;
@@ -6,7 +6,7 @@ use warnings;
 use lib 't';
 use Util;
 
-use Cwd qw(getcwd realpath);
+use Cwd qw(realpath);
 use File::Spec;
 use File::Temp;
 use Test::Builder;
@@ -17,13 +17,12 @@ use App::Ack::ConfigFinder;
 my $tmpdir = $ENV{'TMPDIR'};
 my $home   = $ENV{'HOME'};
 
-chop $tmpdir if $tmpdir && $tmpdir =~ m{/$};
-chop $home   if $home && $home   =~ m{/$};
+for ( $tmpdir, $home ) {
+    s{/$}{} if defined;
+}
 
-if ( $tmpdir && $tmpdir =~ /^\Q$home/ ) {
-    plan tests => 1;
-
-    fail "Your \$TMPDIR ($tmpdir) is set to a descendant directory of ~; this test is known to fail with such a setting. Please set your TMPDIR to something else to get this test to pass.";
+if ( $tmpdir && ($tmpdir =~ /^\Q$home/) ) {
+    plan skip_all => "Your \$TMPDIR ($tmpdir) is set to a descendant directory of your home directory.  This test is known to fail with such a setting.  Please set your TMPDIR to something else to get this test to pass.";
     exit;
 }
 
@@ -49,7 +48,7 @@ sub set_up_globals {
     my (@files) = @_;
 
     foreach my $path (@files) {
-        unless ( -e $path ) {
+        if ( not -e $path ) {
             touch_ackrc( $path );
             push @created_globals, $path;
         }
@@ -58,7 +57,7 @@ sub set_up_globals {
 
 sub clean_up_globals {
     foreach my $path (@created_globals) {
-        unlink $path;
+        unlink $path or warn "Couldn't unlink $path";
     }
 }
 
@@ -66,8 +65,7 @@ sub clean_up_globals {
 sub no_home (&) { ## no critic (ProhibitSubroutinePrototypes)
     my ( $fn ) = @_;
 
-    my $home = delete $ENV{'HOME'}; # localized delete isn't supported in
-                                    # earlier perls
+    my $home = delete $ENV{'HOME'}; # Localized delete isn't supported in earlier Perls.
     $fn->();
     $ENV{'HOME'} = $home; # XXX this won't work on exceptions...
 
@@ -115,7 +113,7 @@ if ( is_windows() || is_cygwin() ) {
 
 my @std_files = (@global_files, { path => File::Spec->catfile($ENV{'HOME'}, '.ackrc') });
 
-my $wd      = getcwd;
+my $wd      = getcwd_clean();
 my $tempdir = File::Temp->newdir;
 chdir $tempdir->dirname;
 

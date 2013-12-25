@@ -3,11 +3,13 @@
 use strict;
 use warnings;
 
-our $VERSION = '2.12'; # Check http://beyondgrep.com/ for updates
+our $VERSION = '2.13_01'; # Check http://beyondgrep.com/ for updates
 
 use 5.008008;
 use Getopt::Long 2.35 ();
 use Carp 1.04 ();
+
+use File::Next ();
 
 use App::Ack ();
 use App::Ack::ConfigLoader ();
@@ -200,19 +202,20 @@ sub _compile_file_filter {
         # command line" wins.
         return 0 if -p $File::Next::name;
 
-        # we can't handle unreadable filenames; report them
-        unless ( -r _ ) {
-            if ( $App::Ack::report_bad_filenames ) {
-                App::Ack::warn( "${File::Next::name}: cannot open file for reading" );
+        # We can't handle unreadable filenames; report them.
+        if ( not -r _ ) {
+            use filetest 'access';
+
+            if ( not -R $File::Next::name ) {
+                if ( $App::Ack::report_bad_filenames ) {
+                    App::Ack::warn( "${File::Next::name}: cannot open file for reading" );
+                }
+                return 0;
             }
-            return 0;
         }
 
         my $resource = App::Ack::Resource::Basic->new($File::Next::name);
-        return 0 if ! $resource;
-        if ( $ifiles_filters->filter($resource) ) {
-            return 0;
-        }
+        return 0 if !$resource || $ifiles_filters->filter($resource);
 
         my $match_found = $direct_filters->filter($resource);
 
@@ -585,8 +588,7 @@ sub iterate {
     my $fh = $resource->open();
     if ( !$fh ) {
         if ( $App::Ack::report_bad_filenames ) {
-            # XXX direct access to filename
-            App::Ack::warn( "$resource->{filename}: $!" );
+            App::Ack::warn( $resource->name . ': ' . $! );
         }
         return;
     }
@@ -796,8 +798,7 @@ sub resource_has_match {
     my $fh = $resource->open();
     if ( !$fh ) {
         if ( $App::Ack::report_bad_filenames ) {
-            # XXX direct access to filename
-            App::Ack::warn( "$resource->{filename}: $!" );
+            App::Ack::warn( $resource->name . ': ' . $! );
         }
     }
     else {
@@ -822,8 +823,7 @@ sub count_matches_in_resource {
     my $fh = $resource->open();
     if ( !$fh ) {
         if ( $App::Ack::report_bad_filenames ) {
-            # XXX direct access to filename
-            App::Ack::warn( "$resource->{filename}: $!" );
+            App::Ack::warn( $resource->name . ': ' . $! );
         }
     }
     else {
@@ -950,7 +950,7 @@ RESOURCES:
                     show_types( $resource, $ors );
                 }
                 else {
-                    local $opt->{show_filename} = 0;
+                    local $opt->{show_filename} = 0; # XXX Why is this local?
 
                     print_line_with_options($opt, '', $resource->name, 0, $ors);
                 }
@@ -992,7 +992,7 @@ RESOURCES:
         elsif ( $opt->{count} ) {
             my $matches_for_this_file = count_matches_in_resource( $resource, $opt );
 
-            unless ( $opt->{show_filename} ) {
+            if ( not $opt->{show_filename} ) {
                 $total_count += $matches_for_this_file;
                 next RESOURCES;
             }
@@ -2172,6 +2172,7 @@ L<https://github.com/petdance/ack2>
 How appropriate to have I<ack>nowledgements!
 
 Thanks to everyone who has contributed to ack in any way, including
+Jonathan Perret,
 Fraser Tweedale,
 RaE<aacute>l GundE<aacute>n,
 Steffen Jaeckel,
