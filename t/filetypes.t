@@ -4,6 +4,7 @@ use warnings;
 use strict;
 
 use Test::More;
+use File::Next;
 
 use lib 't';
 use Util;
@@ -15,7 +16,7 @@ sub populate_filetypes {
 
     my @types_to_try;
 
-    foreach my $line (@$type_lines) {
+    foreach my $line (@{$type_lines}) {
         if($line =~ /^\s+--\[no\](\w+)/) {
             push @types_to_try, $1;
         }
@@ -25,7 +26,7 @@ sub populate_filetypes {
         my ( $filenames, undef ) = run_ack_with_stderr('-f', "--$type",
             't/swamp', 't/etc');
 
-        foreach my $filename (@$filenames) {
+        foreach my $filename ( @{$filenames} ) {
             push @{ $types_for_file{$filename} }, $type;
         }
     }

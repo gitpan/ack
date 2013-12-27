@@ -1,5 +1,13 @@
 History file for ack.  http://beyondgrep.com/
 
+2.13_02 Fri Dec 27 12:54:27 CST 2013
+====================================
+[FIXES]
+The building of ack-standalone relied on the output of `perldoc
+-l`, which I apparently can't rely on having been installed.  I've
+changed the way that the squash program finds File::Next.
+
+
 2.13_01 Wed Dec 25 13:36:08 CST 2013
 ====================================
 So this is Christmas

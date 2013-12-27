@@ -3,12 +3,13 @@
 use strict;
 use warnings;
 
-our $VERSION = '2.13_01'; # Check http://beyondgrep.com/ for updates
+our $VERSION = '2.13_02'; # Check http://beyondgrep.com/ for updates
 
 use 5.008008;
 use Getopt::Long 2.35 ();
 use Carp 1.04 ();
 
+use File::Spec ();
 use File::Next ();
 
 use App::Ack ();
@@ -504,6 +505,7 @@ sub print_line_with_options {
     }
     if( $output_expr ) {
         while ( $line =~ /$opt->{regex}/og ) {
+            # XXX We need to stop using eval() for --output.  See https://github.com/petdance/ack2/issues/421
             my $output = eval $output_expr;
             App::Ack::print( join( $separator, @line_parts, $output ), $ors );
         }
@@ -852,7 +854,7 @@ sub main {
     if ( !defined($opt->{color}) && !$opt->{g} ) {
         my $windows_color = 1;
         if ( $App::Ack::is_windows ) {
-            $windows_color = eval { require Win32::Console::ANSI; }
+            $windows_color = eval { require Win32::Console::ANSI; };
         }
         $opt->{color} = !App::Ack::output_to_pipe() && $windows_color;
     }
@@ -928,9 +930,6 @@ sub main {
     my $total_count = 0;
 RESOURCES:
     while ( my $resource = $resources->next ) {
-        # XXX this variable name combined with what we're trying
-        # to do makes no sense.
-
         # XXX Combine the -f and -g functions
         if ( $opt->{f} ) {
             # XXX printing should probably happen inside of App::Ack
