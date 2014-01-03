@@ -1,5 +1,20 @@
 History file for ack.  http://beyondgrep.com/
 
+2.13_03 Thu Jan  2 22:23:03 CST 2014
+====================================
+[FIXES]
+More build fixes for Windows.  Windows config finder fixes from
+James McCoy.
+
+t/ack-named-pipes.t uses POSIX::mkfifo instead of the external
+command, which should be more portable.  Thanks, Pete Krawczyk.
+
+[ENHANCEMENTS]
+Now ignores Cabal (Haskell) sandboxes.  Thanks, Fraser Tweedale.
+
+Added filetypes for Jade, Smarty and Stylus.  Thanks, Raúl Gundín.
+
+
 2.13_02 Fri Dec 27 12:54:27 CST 2013
 ====================================
 [FIXES]

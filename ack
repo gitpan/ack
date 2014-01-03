@@ -3,7 +3,7 @@
 use strict;
 use warnings;
 
-our $VERSION = '2.13_02'; # Check http://beyondgrep.com/ for updates
+our $VERSION = '2.13_03'; # Check http://beyondgrep.com/ for updates
 
 use 5.008008;
 use Getopt::Long 2.35 ();
@@ -1934,18 +1934,31 @@ using C<--ignore-ack-defaults>.
 =item * Global ackrc
 
 Options are then loaded from the global ackrc.  This is located at
-C</etc/ackrc> on Unix-like systems, and
-C<C:\Documents and Settings\All Users\Application Data\ackrc> on Windows.
-This can be omitted using C<--noenv>.
+C</etc/ackrc> on Unix-like systems.
+
+Under Windows XP and earlier, the ackrc is at
+C<C:\Documents and Settings\All Users\Application Data\ackrc>.
+
+Under Windows Vista/7, the global ackrc is at
+C<C:\ProgramData>
+
+The C<--noenv> option prevents all ackrc files from being loaded.
 
 =item * User ackrc
 
 Options are then loaded from the user's ackrc.  This is located at
-C<$HOME/.ackrc> on Unix-like systems, and
-C<C:\Documents and Settings\$USER\Application Data\ackrc>.  If a different
-ackrc is desired, it may be overridden with the C<$ACKRC> environment
-variable.
-This can be omitted using C<--noenv>.
+C<$HOME/.ackrc> on Unix-like systems.
+
+Under Windows XP and earlier, the user's ackrc is at
+C<C:\Documents and Settings\$USER\Application Data\ackrc>.
+
+Under Windows Vista/7, the user's ackrc is at
+<C:\Users\$USER\AppData\Roaming>.
+
+If you want to load a different user-level ackrc, it may be specified
+with the C<$ACKRC> environment variable.
+
+The C<--noenv> option prevents all ackrc files from being loaded.
 
 =item * Project ackrc
 
@@ -2171,6 +2184,10 @@ L<https://github.com/petdance/ack2>
 How appropriate to have I<ack>nowledgements!
 
 Thanks to everyone who has contributed to ack in any way, including
+RaE<uacute>l GundE<iacute>n,
+James McCoy,
+Daniel Perrett,
+Steven Lee,
 Jonathan Perret,
 Fraser Tweedale,
 RaE<aacute>l GundE<aacute>n,
