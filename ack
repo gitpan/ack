@@ -3,7 +3,7 @@
 use strict;
 use warnings;
 
-our $VERSION = '2.13_03'; # Check http://beyondgrep.com/ for updates
+our $VERSION = '2.13_04'; # Check http://beyondgrep.com/ for updates
 
 use 5.008008;
 use Getopt::Long 2.35 ();
@@ -595,8 +595,7 @@ sub iterate {
         return;
     }
 
-    # check for context before the main loop, so we don't
-    # pay for it if we don't need it
+    # Check for context before the main loop, so we don't pay for it if we don't need it.
     if ( $n_before_ctx_lines || $n_after_ctx_lines ) {
         my $current_line = <$fh>; # prime the first line of input
 
@@ -1045,7 +1044,7 @@ ack - grep-like text finder
 
 =head1 DESCRIPTION
 
-Ack is designed as a replacement for 99% of the uses of F<grep>.
+Ack is designed as a replacement for F<grep> for programmers.
 
 Ack searches the named input FILEs (or standard input if no files
 are named, or the file name - is given) for lines containing a match
@@ -2184,6 +2183,7 @@ L<https://github.com/petdance/ack2>
 How appropriate to have I<ack>nowledgements!
 
 Thanks to everyone who has contributed to ack in any way, including
+Denis Howe,
 RaE<uacute>l GundE<iacute>n,
 James McCoy,
 Daniel Perrett,
@@ -2281,7 +2281,7 @@ Rob Hoelz.
 
 =head1 COPYRIGHT & LICENSE
 
-Copyright 2005-2013 Andy Lester.
+Copyright 2005-2014 Andy Lester.
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the Artistic License v2.0.
